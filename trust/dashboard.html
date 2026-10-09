@@ -11,7 +11,7 @@ body { margin:0; background:var(--bg); color:var(--ink); font:13px/1.5 -apple-sy
 button,input { font:inherit; } button { cursor:pointer; } button:disabled { cursor:wait; opacity:.6; } :focus-visible { outline:3px solid #65ff8e80; outline-offset:3px; }
 .shell { display:grid; grid-template-columns:180px minmax(0,1fr); min-height:100vh; }
 .rail { background:var(--panel); border-right:1px solid var(--line); padding:26px 16px; display:flex; flex-direction:column; gap:30px; }
-.brand { display:flex; align-items:center; gap:10px; padding:0 4px; font-size:14px; font-weight:650; letter-spacing:-.4px; }
+.brand { text-decoration:none; display:flex; align-items:center; gap:10px; padding:0 4px; font-size:14px; font-weight:650; letter-spacing:-.4px; }
 .brand-mark { flex:none; display:grid; place-items:center; width:32px; height:36px; color:var(--accent); }
 .brand small { display:block; font-size:10px; color:var(--muted); font-weight:400; letter-spacing:0; }
 nav { display:grid; gap:6px; } .nav { display:flex; align-items:center; gap:10px; text-align:left; padding:11px 12px; background:transparent; border:0; border-radius:7px; color:var(--muted); font-weight:500; } .nav:hover { background:#0b100d; } .nav.active { color:var(--accent); background:#183322; } .nav svg { width:16px; height:16px; flex:none; } .nav .badge { margin-left:auto; font-size:10px; }
@@ -38,9 +38,11 @@ pre.diff { padding:8px 0; } pre.diff span { display:block; padding:0 12px; min-h
 @media(prefers-reduced-motion:reduce) { * { scroll-behavior:auto!important; } }
 
 #story-title:focus,#page-title:focus { outline:none; }
-a { color:inherit; } .home-link { display:block; color:var(--muted); text-decoration:none; margin-top:22px; padding-top:16px; border-top:1px solid var(--line); font-size:11px; } .home-link:hover { color:var(--accent); }
+a { color:inherit; }
+.top-actions { display:flex; flex-direction:column; align-items:flex-end; gap:10px; } .guide-link { display:inline-flex; align-items:center; gap:8px; padding:7px 12px; border:1px solid var(--line); border-radius:999px; text-decoration:none; font-size:11px; white-space:nowrap; } .guide-link:hover { color:var(--accent); background:var(--ok-bg); }
+@media(max-width:760px) { .top { position:relative; } .top .eyebrow { padding-right:110px; } .top-actions { width:100%; align-items:flex-start; } .guide-link { position:absolute; right:0; top:-5px; } }
 .story { position:relative; isolation:isolate; max-width:1200px; padding:0 44px 36px; margin:auto; }
-.story-nav { display:flex; align-items:center; justify-content:space-between; padding:26px 0; border-bottom:1px solid var(--line); } .story-brand { display:flex; gap:10px; align-items:center; font-size:16px; font-weight:600; letter-spacing:-.5px; } .story-brand svg { width:25px; height:28px; color:var(--accent); } .story-links { display:flex; align-items:center; gap:28px; font-size:12px; color:var(--muted); } .story-links a { text-decoration:none; } .story-links a:hover { color:var(--accent); }
+.story-nav { display:flex; align-items:center; justify-content:space-between; padding:26px 0; border-bottom:1px solid var(--line); } .story-brand { text-decoration:none; display:flex; gap:10px; align-items:center; font-size:16px; font-weight:600; letter-spacing:-.5px; } .story-brand svg { width:25px; height:28px; color:var(--accent); } .story-links { display:flex; align-items:center; gap:28px; font-size:12px; color:var(--muted); } .story-links a { text-decoration:none; } .story-links a:hover { color:var(--accent); }
 .story-hero { display:grid; grid-template-columns:1.2fr 1fr; gap:50px; padding:76px 0 72px; align-items:center; }
 .issue-label { color:var(--accent); font:10px ui-monospace,SFMono-Regular,monospace; text-transform:uppercase; letter-spacing:.14em; display:flex; gap:14px; align-items:center; } .issue-label::before { content:""; width:30px; height:1px; background:var(--accent); }
 .story h1 { font:600 clamp(48px,6.2vw,78px)/1.04 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; letter-spacing:-3.8px; margin:24px 0; } .story h1 em { color:var(--accent); font-style:normal; font-weight:600; }
@@ -65,7 +67,7 @@ a { color:inherit; } .home-link { display:block; color:var(--muted); text-decora
 
 .trap-feature { position:relative; text-align:center; } .trap-scene { position:relative; } .trap-feature .trap-scene::before { content:""; position:absolute; inset:15% 5%; border-radius:50%; background:radial-gradient(circle,#65ff8e1a,transparent 66%); z-index:-1; }
 .trap-art { display:block; width:100%; max-width:450px; margin:auto; overflow:visible; filter:drop-shadow(0 14px 24px #0007); }
-.trap-bug { opacity:0; } .trap-caption { margin-top:-18px; position:relative; } .trap-caption .eyebrow { color:var(--accent); } .trap-caption strong { display:block; font-size:22px; font-weight:550; letter-spacing:-.6px; margin:7px 0; } .trap-caption p { color:var(--muted); font-size:11px; margin:0 0 14px; } .trap-demo { color:var(--ink); background:#192b20; border:1px solid #385d44; border-radius:999px; padding:9px 16px; font-size:11px; } .trap-demo:hover { background:#254132; } .demo-note { display:block; margin-top:8px; color:var(--muted); font-size:9px; }
+.trap-bug { opacity:0; } .trap-caption { margin-top:-18px; position:relative; } .trap-caption .eyebrow { color:var(--accent); } .trap-caption strong { display:block; font-size:22px; font-weight:550; letter-spacing:-.6px; margin:7px 0; } .trap-caption p { color:var(--muted); font-size:11px; margin:0 0 14px; }
 .trap-companion { border-top:1px solid var(--line); padding:12px 18px 20px; text-align:center; } .trap-companion .trap-art { width:170px; } .trap-companion strong { font-size:12px; font-weight:550; } .trap-companion p { color:var(--accent); font-size:10px; margin:6px 0; overflow-wrap:anywhere; } .trap-note { display:block; color:var(--muted); font-size:9px; }
 .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 @media(max-width:760px) { .trap-companion .trap-art { width:115px; } .trap-companion { padding-top:4px; } }
@@ -75,7 +77,7 @@ a { color:inherit; } .home-link { display:block; color:var(--muted); text-decora
 <body>
 <div class="story" id="story">
   <div class="bio-background" aria-hidden="true"><span class="bio-glow one"></span><span class="bio-glow two"></span><span class="bio-glow three"></span><span class="bio-particle" style="--x:8%;--y:24%;--duration:12s;--delay:-3s"></span><span class="bio-particle" style="--x:43%;--y:15%;--duration:16s;--delay:-7s"></span><span class="bio-particle" style="--x:86%;--y:17%;--duration:14s;--delay:-2s"></span><span class="bio-particle" style="--x:74%;--y:48%;--duration:18s;--delay:-10s"></span><span class="bio-particle" style="--x:55%;--y:61%;--duration:15s;--delay:-6s"></span><span class="bio-particle" style="--x:16%;--y:78%;--duration:20s;--delay:-9s"></span><span class="bio-particle" style="--x:93%;--y:74%;--duration:17s;--delay:-4s"></span><span class="bio-particle" style="--x:34%;--y:88%;--duration:14s;--delay:-8s"></span></div>
-  <header class="story-nav"><div class="story-brand"><svg viewBox="0 0 24 26" fill="none" aria-hidden="true"><path d="M12 2 21 6v7c0 5-5 9-9 11-4-2-9-6-9-11V6l9-4Z" stroke="currentColor" stroke-width="1.5"/><path d="m8 13 3 3 5-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Trust Issues</span></div><nav class="story-links" aria-label="Introduction navigation"><a href="#chapters">The chapters</a><a href="#workspace">Open workspace ↗</a></nav></header>
+  <header class="story-nav"><a class="story-brand" href="#story" aria-label="Trust Issues home"><svg viewBox="0 0 24 26" fill="none" aria-hidden="true"><path d="M12 2 21 6v7c0 5-5 9-9 11-4-2-9-6-9-11V6l9-4Z" stroke="currentColor" stroke-width="1.5"/><path d="m8 13 3 3 5-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Trust Issues</span></a><nav class="story-links" aria-label="Introduction navigation"><a href="#chapters">The chapters</a><a href="#workspace">Open workspace ↗</a></nav></header>
   <div class="story-hero"><div class="story-copy"><div class="issue-label">A field guide to autonomous security</div><h1 id="story-title" tabindex="-1">A fix is a claim.<br><em>Proof is the story.</em></h1><p>Code can change in a second. Confidence takes evidence. Follow every repair from the first exploit to the final check—and the human decision when proof falls short.</p><a class="enter" href="#workspace">Enter the workspace <span aria-hidden="true">↗</span></a><span class="enter-note">Find. Repair. Prove. Know when to call.</span></div>
   <div class="trap-feature"><div class="trap-scene" id="landing-trap"><svg class="trap-art" viewBox="0 0 400 420" fill="none" aria-hidden="true">
  <defs><linearGradient id="leaf-landing" x1="70" y1="40" x2="300" y2="330" gradientUnits="userSpaceOnUse"><stop stop-color="#a8ff77"/><stop offset=".45" stop-color="#46d764"/><stop offset="1" stop-color="#126338"/></linearGradient><radialGradient id="mouth-landing"><stop stop-color="#53273c"/><stop offset="1" stop-color="#1a1523"/></radialGradient></defs>
@@ -89,23 +91,22 @@ a { color:inherit; } .home-link { display:block; color:var(--muted); text-decora
  <g class="upper-jaw"><path class="leaf-outer" fill="url(#leaf-landing)" stroke="#83f28b" stroke-width="2"/><path class="leaf-inner" fill="url(#mouth-landing)"/><path class="leaf-veins" stroke="#a24e72" stroke-width="1" opacity=".45"/><path class="leaf-teeth" stroke="#9dff88" stroke-width="2.5" stroke-linecap="round"/></g>
  <g class="lower-jaw"><path class="leaf-outer" fill="url(#leaf-landing)" stroke="#83f28b" stroke-width="2"/><path class="leaf-inner" fill="url(#mouth-landing)"/><path class="leaf-veins" stroke="#a24e72" stroke-width="1" opacity=".45"/><path class="leaf-teeth" stroke="#9dff88" stroke-width="2.5" stroke-linecap="round"/></g>
  <g class="trap-bug"><g transform="translate(200 172)"><ellipse class="bug-wing left" cx="-6" cy="-5" rx="8" ry="5" transform="rotate(-25 -6 -5)" fill="#dae9e2" opacity=".8"/><ellipse class="bug-wing right" cx="6" cy="-5" rx="8" ry="5" transform="rotate(25 6 -5)" fill="#dae9e2" opacity=".8"/><path d="m-5 0-9-2m9 6-9 3m9-12-7-5m17 8 9-2m-9 8 9 3m-9-12 7-5" stroke="#cfe0d8" stroke-width="1.5"/><ellipse cy="3" rx="5" ry="8" fill="#d1aa58"/><circle cy="-6" r="4" fill="#f0d48f"/></g></g>
-</svg></div><div class="trap-caption"><span class="eyebrow">Meet your bug catcher</span><strong>Small bugs. Big appetite.</strong><p>New findings trigger a catch.<br>Proof still decides what ships.</p><button class="trap-demo" id="trap-demo" type="button">Preview a catch <span aria-hidden="true">↗</span></button><span class="demo-note">Illustrative animation · no scan or code changes</span></div></div></div>
+</svg></div><div class="trap-caption"><span class="eyebrow">Meet your bug catcher</span><strong>Small bugs. Big appetite.</strong><p>On the lookout for bugs.<br>Proof still decides what ships.</p></div></div></div>
   <section class="chapters" id="chapters" aria-label="How Trust Issues works"><div class="chapter-heading"><span>Table of contents</span><span>Three chapters. One security loop.</span></div><div class="chapter-grid"><article class="chapter"><span class="chapter-number">01 / THE FINDING</span><h2>Start with the exploit.</h2><p>Establish the vulnerability, then make a focused repair. Every fix gets its own place in the ledger.</p></article><article class="chapter"><span class="chapter-number">02 / THE EVIDENCE</span><h2>Make the proof visible.</h2><p>Six checks examine exploit prevention, the security scan, regression tests, test integrity, and patch scope.</p></article><article class="chapter"><span class="chapter-number">03 / THE JUDGMENT</span><h2>Keep a human in reach.</h2><p>When proof fails, inspect the evidence and decide: retry with a hint, hold the patch, or explicitly ship without proof.</p></article></div></section>
   <footer class="story-foot"><span>Trust Issues / A record of what holds.</span><a href="#workspace">Read the evidence in the workspace →</a></footer>
 </div>
 <div class="shell" id="product" hidden>
 <aside class="rail">
-  <div class="brand"><div class="brand-mark"><svg viewBox="0 0 24 26" fill="none" aria-hidden="true"><path d="M12 2 21 6v7c0 5-5 9-9 11-4-2-9-6-9-11V6l9-4Z" stroke="currentColor" stroke-width="1.5"/><path d="m8 13 3 3 5-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div>Trust Issues<small>Security workspace</small></div></div>
+  <a class="brand" href="#story" aria-label="Trust Issues home"><div class="brand-mark"><svg viewBox="0 0 24 26" fill="none" aria-hidden="true"><path d="M12 2 21 6v7c0 5-5 9-9 11-4-2-9-6-9-11V6l9-4Z" stroke="currentColor" stroke-width="1.5"/><path d="m8 13 3 3 5-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div>Trust Issues<small>Security workspace</small></div></a>
   <nav aria-label="Workspace navigation">
     <button class="nav active" data-view="overview" aria-current="page"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M3 3h5v5H3zM12 3h5v5h-5zM3 12h5v5H3zM12 12h5v5h-5z" stroke="currentColor"/></svg>Overview</button>
     <button class="nav" data-view="fixes"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 5h12M4 10h12M4 15h12" stroke="currentColor" stroke-width="1.5"/></svg>Fixes</button>
     <button class="nav" data-view="decisions"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 2 18 17H2L10 2Z" stroke="currentColor"/><path d="M10 7v5m0 2v1" stroke="currentColor"/></svg>Decisions<span class="badge" id="decision-count">—</span></button>
-    <a class="nav" href="#story" style="text-decoration:none">Field guide</a>
   </nav>
-  <div class="rail-foot"><div class="connection" id="connection"><span class="dot"></span><span id="connection-label">Connecting</span></div>Evidence before confidence.<a class="home-link" href="#story">← Read the field guide</a></div>
+  <div class="rail-foot"><div class="connection" id="connection"><span class="dot"></span><span id="connection-label">Connecting</span></div>Evidence before confidence.</div>
 </aside>
 <main class="product-main">
-  <header class="top"><div><div class="eyebrow">Autonomous security</div><h1 id="page-title" tabindex="-1">Security overview</h1><p class="subtitle" id="page-subtitle">Every repair, every check, every human decision.</p></div><div class="meta" id="meta" role="status">Connecting to ledger…</div></header>
+  <header class="top"><div><div class="eyebrow">Autonomous security</div><h1 id="page-title" tabindex="-1">Security overview</h1><p class="subtitle" id="page-subtitle">Every repair, every check, every human decision.</p></div><div class="top-actions"><a class="guide-link" href="#story">Field guide <span aria-hidden="true">↗</span></a><div class="meta" id="meta" role="status">Connecting to ledger…</div></div></header>
   <div class="stats" id="stats" aria-label="Ledger summary">
     <div class="stat"><span>Tracked fixes</span><strong id="count-total">—</strong></div>
     <div class="stat"><span>Proven fixes</span><strong id="count-proven">—</strong></div>
@@ -355,9 +356,10 @@ function leafPose(jaw, aperture, upper) {
   jaw.querySelector(".leaf-teeth").setAttribute("d", teeth);
   jaw.querySelector(".leaf-veins").setAttribute("d", veins);
 }
-function poseTrap(aperture, insect = null) {
-  trapAperture = aperture;
-  for (const rig of trapRigs) {
+function poseTrap(aperture, insect = null, rigs = trapRigs) {
+  if (rigs === trapRigs) trapAperture = aperture;
+  for (const rig of rigs) {
+    rig.aperture = aperture;
     leafPose(rig.upper, aperture, true); leafPose(rig.lower, aperture, false);
     rig.bug.style.opacity = insect ? String(insect.opacity) : "0";
     if (insect) {
@@ -367,7 +369,7 @@ function poseTrap(aperture, insect = null) {
   }
 }
 function easeOut(t) { return 1 - Math.pow(1 - Math.max(0, Math.min(1,t)), 3); }
-function capturePose(ms, initialAperture) {
+function capturePose(ms, initialAperture, rigs = trapRigs) {
   let aperture;
   if (ms < 320) aperture = initialAperture + (1 - initialAperture) * easeOut(ms/320);
   else if (ms < 980) aperture = 1;
@@ -381,7 +383,7 @@ function capturePose(ms, initialAperture) {
       opacity: Math.min(1,(ms-320)/90) * (ms > 1000 ? Math.max(0,1-(ms-1000)/70) : 1),
       wing:t < 1 ? Math.sin(ms*.09)*18 : 0 };
   }
-  poseTrap(aperture, insect);
+  poseTrap(aperture, insect, rigs);
 }
 poseTrap(1);
 // A capture acknowledges a new finding; it never changes a security verdict.
@@ -389,33 +391,35 @@ const observedFindings = new Set();
 let findingsHydrated = false;
 let captureActive = false;
 let captureQueue = [];
-function playCapture(finding, demo = false) {
+function playCapture(finding, ambient = false) {
   if (captureActive) return;
   captureActive = true;
-  $("#trap-demo").disabled = true;
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const initialAperture = trapAperture;
-  if (reducedMotion) poseTrap(.14);
+  // Ambient catches belong to the introduction, never the live workspace.
+  const rigs = ambient ? trapRigs.slice(0, 1) : trapRigs;
+  const initialAperture = rigs[0]?.aperture ?? trapAperture;
+  if (reducedMotion) poseTrap(.14, null, rigs);
   else {
     const start = performance.now();
     const frame = (now) => {
-      capturePose(now-start, initialAperture);
+      capturePose(now-start, initialAperture, rigs);
       if (captureActive && now-start < 1800) captureFrame = requestAnimationFrame(frame);
     };
     captureFrame = requestAnimationFrame(frame);
   }
-  if (!demo) {
+  if (!ambient) {
     $("#trap-status").textContent = `Catching a finding in ${finding.file}.`;
     $("#capture-live").textContent = `New vulnerability detected in ${finding.file}. Inspect its evidence in the fix queue.`;
   }
   setTimeout(() => {
     if (captureFrame !== null) cancelAnimationFrame(captureFrame);
     captureFrame = null;
-    poseTrap(.14);
-    $("#trap-demo").disabled = false;
+    poseTrap(.14, null, rigs);
     captureActive = false;
-    const count = group(ledgerRows).length;
-    $("#trap-status").textContent = `${count} tracked ${count === 1 ? "finding" : "findings"} · proof still required.`;
+    if (!ambient) {
+      const count = group(ledgerRows).length;
+      $("#trap-status").textContent = `${count} tracked ${count === 1 ? "finding" : "findings"} · proof still required.`;
+    }
     nextCapture();
   }, reducedMotion ? 600 : 1800);
 }
@@ -433,7 +437,19 @@ function observeFindings(rows) {
   if (!captureActive) $("#trap-status").textContent = findings.length ? `${findings.length} tracked ${findings.length === 1 ? "finding" : "findings"} · proof still required.` : "Listening for new findings.";
   nextCapture();
 }
-$("#trap-demo").onclick = () => playCapture({file:"sample bug"}, true);
+let ambientTimer = null;
+function scheduleAmbientCapture(delay = 8500 + Math.random() * 3500) {
+  if (ambientTimer !== null) clearTimeout(ambientTimer);
+  ambientTimer = null;
+  if ($("#story").hidden || document.hidden || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  ambientTimer = setTimeout(() => {
+    ambientTimer = null;
+    if ($("#story").hidden || document.hidden) return;
+    if (!captureActive && !captureQueue.length) playCapture(null, true);
+    scheduleAmbientCapture();
+  }, delay);
+}
+document.addEventListener("visibilitychange", () => scheduleAmbientCapture(1800));
 async function refresh() {
   try {
     const response = await fetch("/api/rows");
@@ -463,6 +479,7 @@ function showPage() {
   const inWorkspace = window.location.hash === "#workspace";
   $("#product").hidden = !inWorkspace;
   $("#story").hidden = inWorkspace;
+  scheduleAmbientCapture(1800);
   if (window.location.hash !== "#chapters") window.scrollTo(0, 0);
   document.title = inWorkspace ? "Trust Issues · Security workspace" : "Trust Issues · The security field guide";
   if (inWorkspace) { renderWorkspace(); $("#page-title").focus({ preventScroll: true }); }
