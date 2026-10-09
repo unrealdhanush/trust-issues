@@ -4,7 +4,9 @@ Without ElevenLabs settings this runs in console mode: it prints the brief and t
 is made from the dashboard or `trust decide`.
 """
 
+import json
 import re
+from urllib.parse import urlencode
 
 import httpx
 
@@ -73,24 +75,26 @@ def first_message(brief: dict):
     return re.sub(r"\{\{(\w+)\}\}", lambda m: str(brief.get(m.group(1), m.group(0))), FIRST_MESSAGE)
 
 
+def twilio_configured():
+    return all(env(k) for k in ("TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_FROM_NUMBER"))
+
+
 def configured():
-    return all(env(k) for k in ("ELEVENLABS_API_KEY", "ELEVENLABS_AGENT_ID",
-                                "ELEVENLABS_PHONE_NUMBER_ID", "ONCALL_PHONE_NUMBER"))
+    """Can we ring a phone: through ElevenLabs' Twilio integration, or through Twilio directly."""
+    base = all(env(k) for k in ("ELEVENLABS_API_KEY", "ELEVENLABS_AGENT_ID", "ONCALL_PHONE_NUMBER"))
+    return base and (bool(env("ELEVENLABS_PHONE_NUMBER_ID")) or twilio_configured())
 
 
 def _headers():
     return {"xi-api-key": env("ELEVENLABS_API_KEY")}
 
 
-def call_oncall(brief: dict):
-    """Place the call. `brief` becomes the agent's dynamic variables. Returns a conversation id."""
+def _call_via_elevenlabs(dynamic):
     body = {
         "agent_id": env("ELEVENLABS_AGENT_ID"),
         "agent_phone_number_id": env("ELEVENLABS_PHONE_NUMBER_ID"),
         "to_number": env("ONCALL_PHONE_NUMBER"),
-        "conversation_initiation_client_data": {
-            "dynamic_variables": {k: str(v) for k, v in brief.items()},
-        },
+        "conversation_initiation_client_data": {"dynamic_variables": dynamic},
     }
     resp = httpx.post(f"{API}/v1/convai/twilio/outbound-call", json=body, headers=_headers(), timeout=30)
     resp.raise_for_status()
@@ -98,6 +102,61 @@ def call_oncall(brief: dict):
     if not data.get("success", True):
         raise RuntimeError(data.get("message", "outbound call failed"))
     return data.get("conversation_id")
+
+
+def register_call(dynamic):
+    """TwiML that connects a Twilio call to the agent, with the brief as dynamic variables."""
+    resp = httpx.post(f"{API}/v1/convai/twilio/register-call", headers=_headers(), timeout=30, json={
+        "agent_id": env("ELEVENLABS_AGENT_ID"),
+        "from_number": env("TWILIO_FROM_NUMBER"),
+        "to_number": env("ONCALL_PHONE_NUMBER"),
+        "direction": "outbound",
+        "conversation_initiation_client_data": {"dynamic_variables": {k: str(v) for k, v in dynamic.items()}},
+    })
+    resp.raise_for_status()
+    twiml = resp.text.strip()
+    return json.loads(twiml) if twiml.startswith('"') else twiml  # sometimes a JSON-encoded string
+
+
+def _call_via_twilio(dynamic):
+    """Twilio places a plain call; the agent joins through ElevenLabs' TwiML.
+
+    A Twilio trial account refuses the parameters ElevenLabs' own outbound call uses, and
+    inline TwiML too, but allows a basic call to a verified number whose instructions come
+    from a URL (with its trial notice first). With PUBLIC_BASE_URL set, Twilio fetches them
+    from `trust-issues serve` at /twilio/connect; otherwise they're sent inline.
+    """
+    base = env("PUBLIC_BASE_URL").rstrip("/")
+    params = {"To": env("ONCALL_PHONE_NUMBER"), "From": env("TWILIO_FROM_NUMBER")}
+    if base:
+        query = urlencode({"fix_id": dynamic["fix_id"], "t": env("TRUST_WEBHOOK_TOKEN")})
+        params["Url"] = f"{base}/twilio/connect?{query}"
+    else:
+        params["Twiml"] = register_call(dynamic)
+    sid = env("TWILIO_ACCOUNT_SID")
+    call = httpx.post(f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Calls.json",
+                      auth=(sid, env("TWILIO_AUTH_TOKEN")), timeout=30, data=params)
+    if call.status_code >= 400:
+        raise RuntimeError(f"Twilio refused the call: {call.text[:300]}")
+    return call.json()["sid"]
+
+
+def call_oncall(brief: dict):
+    """Ring on-call. `brief` becomes the agent's dynamic variables.
+
+    Returns {"via", "conversation_id", "call_sid", "note"}. Tries ElevenLabs' outbound call
+    first, then Twilio directly; TRUST_CALL_VIA=twilio skips straight to Twilio.
+    """
+    dynamic = {k: str(v) for k, v in brief.items()}
+    note = ""
+    if env("TRUST_CALL_VIA", "elevenlabs") != "twilio" and env("ELEVENLABS_PHONE_NUMBER_ID"):
+        try:
+            return {"via": "elevenlabs", "conversation_id": _call_via_elevenlabs(dynamic), "call_sid": None, "note": ""}
+        except Exception as exc:
+            if not twilio_configured():
+                raise
+            note = f"ElevenLabs' outbound call failed ({str(exc)[:120]})"
+    return {"via": "twilio", "conversation_id": None, "call_sid": _call_via_twilio(dynamic), "note": note}
 
 
 def conversation(conversation_id):

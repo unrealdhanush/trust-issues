@@ -8,6 +8,7 @@ on read.
 
 import fcntl
 import json
+import time
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
@@ -111,38 +112,54 @@ class ClickHouseLedger:
     kind = "clickhouse"
 
     def __init__(self, url, password, user="default", database="default"):
-        import clickhouse_connect
-
         u = urlparse(url if "://" in url else f"https://{url}")
-        self.client = clickhouse_connect.get_client(
+        self._connect_args = dict(
             host=u.hostname, port=u.port or (8443 if u.scheme == "https" else 8123),
             username=u.username or user, password=password, secure=u.scheme == "https",
             database=database,
         )
+        self.client = self._connect()
+
+    def _connect(self):
+        import clickhouse_connect
+
+        return clickhouse_connect.get_client(**self._connect_args)
+
+    def _retry(self, fn):
+        """One retry on a fresh connection: an idle service or a stale pooled connection fails
+        the first request after a quiet spell, and a voice call mid-sentence can't wait for us."""
+        try:
+            return fn()
+        except Exception:
+            time.sleep(0.5)
+            self.client = self._connect()
+            return fn()
 
     def setup(self):
-        self.client.command(DDL)
+        self._retry(lambda: self.client.command(DDL))
         # Tables created before the scope check existed.
-        self.client.command(f"ALTER TABLE {TABLE} ADD COLUMN IF NOT EXISTS scope_clean Bool DEFAULT true AFTER suite_pass")
+        self._retry(lambda: self.client.command(
+            f"ALTER TABLE {TABLE} ADD COLUMN IF NOT EXISTS scope_clean Bool DEFAULT true AFTER suite_pass"))
 
     def insert(self, row):
         row = normalize(row)
-        self.client.insert(TABLE, [[row[c] for c in COLUMNS]], column_names=COLUMNS)
+        self._retry(lambda: self.client.insert(TABLE, [[row[c] for c in COLUMNS]], column_names=COLUMNS))
         return row
 
     def delete(self, fix_id=None, prefix=None):
         if fix_id:
-            self.client.command(f"DELETE FROM {TABLE} WHERE fix_id = {{v:String}}", parameters={"v": fix_id})
+            self._retry(lambda: self.client.command(
+                f"DELETE FROM {TABLE} WHERE fix_id = {{v:String}}", parameters={"v": fix_id}))
         if prefix:
-            self.client.command(f"DELETE FROM {TABLE} WHERE startsWith(fix_id, {{v:String}})",
-                                parameters={"v": prefix})
+            self._retry(lambda: self.client.command(
+                f"DELETE FROM {TABLE} WHERE startsWith(fix_id, {{v:String}})", parameters={"v": prefix}))
 
     def rows(self, fix_id=None):
         where = "WHERE fix_id = {fix_id:String}" if fix_id else ""
-        res = self.client.query(
+        res = self._retry(lambda: self.client.query(
             f"SELECT {', '.join(COLUMNS)} FROM {TABLE} FINAL {where} ORDER BY ts",
             parameters={"fix_id": fix_id} if fix_id else None,
-        )
+        ))
         out = []
         for r in res.named_results():
             r["ts"] = r["ts"].isoformat()

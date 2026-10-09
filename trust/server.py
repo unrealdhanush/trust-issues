@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 
 from fastapi import FastAPI, Header, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel
 
 from .config import env
@@ -94,6 +94,20 @@ def read_ledger(ref: FixRef, x_trust_token: str = Header(default="")):
 def write_decision(d: Decision, x_trust_token: str = Header(default="")):
     check_token(x_trust_token)
     return record_decision(d)
+
+
+@app.api_route("/twilio/connect", methods=["GET", "POST"])
+def twilio_connect(fix_id: str, t: str = ""):
+    """Twilio fetches the call's instructions here when on-call picks up (see voice._call_via_twilio).
+    Twilio can't send our header, so the webhook token rides in the query string."""
+    check_token(t)
+    from . import voice
+
+    rows = [r for r in get_ledger().rows(fix_id) if r["verdict"] == "escalated"]
+    if not rows:
+        raise HTTPException(404, f"no escalation for {fix_id}")
+    brief = json.loads(rows[-1]["evidence"] or "{}").get("brief") or {"fix_id": fix_id}
+    return Response(content=voice.register_call(brief), media_type="application/xml")
 
 
 @app.get("/api/rows")
