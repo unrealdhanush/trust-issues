@@ -57,8 +57,8 @@ def scenario(fix_id):
 def preflight(fix_id):
     """Problems that would break a live call, found before the phone rings."""
     problems = []
-    if not voice.configured():
-        return problems
+    if not (voice.configured() or env("ELEVENLABS_AGENT_ID")):
+        return problems  # nothing outside this machine will call the tools
     base = env("PUBLIC_BASE_URL").rstrip("/")
     if not base:
         return ["PUBLIC_BASE_URL is unset, so the agent's tools can't reach this machine"]
@@ -91,9 +91,13 @@ def rehearse(timeout=180, keep=False, force=False):
         if problems and not force:
             say("not calling; fix the above or pass --force")
             return None
-        if voice.configured():
+        if env("PUBLIC_BASE_URL") and (voice.configured() or env("ELEVENLABS_AGENT_ID")):
             say(f"preflight ok: tools reach this ledger through {env('PUBLIC_BASE_URL')}")
+        if voice.configured():
             say(f"calling {env('ONCALL_PHONE_NUMBER')}")
+        elif env("ELEVENLABS_AGENT_ID"):
+            say("no phone number set: answer with the ElevenLabs widget on the dashboard "
+                "(http://localhost:8000), or `trust-issues decide`")
         else:
             missing = [k for k in ("ELEVENLABS_API_KEY", "ELEVENLABS_AGENT_ID",
                                    "ELEVENLABS_PHONE_NUMBER_ID", "ONCALL_PHONE_NUMBER") if not env(k)]

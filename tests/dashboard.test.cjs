@@ -7,7 +7,7 @@ const source = fs.readFileSync(new URL('../trust/dashboard.html', `file://${__fi
 function harness() {
   const elements = new Map(), selectors = new Map(), posts = [], alerts = [];
   let lastQueue='', lastAttempts='';
-  function element(dataset={}) { return {dataset, value:'', hidden:false, innerHTML:'', writes:0, textContent:'', classList:{add(){},remove(){},toggle(){}},setAttribute(){},removeAttribute(){}}; }
+  function element(dataset={}) { return {dataset, value:'', hidden:false, innerHTML:'', writes:0, textContent:'', classList:{add(){},remove(){},toggle(){}},setAttribute(){},removeAttribute(){},scrollIntoView(){}}; }
   const get = s => { if (!elements.has(s)) {const e=element();let html='';Object.defineProperty(e,'innerHTML',{get:()=>html,set:v=>{html=v;e.writes++}});elements.set(s,e);} return elements.get(s); };
   const nav = ['overview','fixes','decisions'].map(view=>element({view})); selectors.set('[data-view]', nav);
   const decisions=['retry','ship','hold'].map(d=>element({d}));selectors.set('#calls button',decisions);
@@ -20,7 +20,7 @@ function harness() {
   const context=vm.createContext({document,fetch:async(url,options)=>{
     if(options) {if(networkError) throw Error('offline');posts.push(JSON.parse(options.body));return {ok:postOK,json:async()=>({detail:'No escalation is waiting'})};}
     return {ok,json:async()=>url==='/api/config'?{}:{ledger:'test',rows}};
-  },setInterval(){},alert:m=>alerts.push(m),Date,Map});
+  },setInterval(){},alert:m=>alerts.push(m),window:{matchMedia:()=>({matches:true})},Date,Map});
   vm.runInContext(source,context);
   return {get,nav,decisions,posts,alerts,context,buttons:s=>document.querySelectorAll(s),setPostOK:v=>postOK=v,setNetworkError:v=>networkError=v,setRows:r=>rows=r,setOK:v=>ok=v,run:s=>vm.runInContext(s,context),refresh:()=>vm.runInContext('refresh()',context)};
 }

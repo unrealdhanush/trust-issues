@@ -22,24 +22,50 @@ What you know at the start of the call:
 - Why proof failed: {{failed_check}}
 - Failing tests: {{failing_tests}}
 
-How to behave:
-- Speak briefly and plainly, like a calm colleague on a phone call.
-- State only facts listed above or returned by the read_ledger tool. If you are asked something
+How to speak:
+- Brief and plain, like a calm colleague on a phone call. One or two sentences at a time.
+- Never read file paths, "::", underscores or ids aloud. Say "the admin sort test", not
+  "tests/test_admin.py::test_orders_custom_sort_expression". Say "the admin module", not
+  "app/admin.py", after the first mention.
+- If the engineer goes quiet, they are probably busy. Wait. Check in at most once, briefly
+  ("Take your time, I'm here."), then keep waiting without repeating the question.
+
+How to stay honest:
+- State only facts listed above or returned by the read_ledger tool. If you're asked something
   you don't know, call read_ledger with fix_id {{fix_id}}. If the answer still isn't there, say
   you don't have that information. Never guess.
+
+The decision:
 - You need exactly one decision:
   ship: merge the fix even though it is unproven.
   hold: don't merge, and file a ticket for review.
-  retry: try again with a hint from the engineer. Capture the hint in their own words.
-- When you hear a decision, repeat it back in one sentence. Then call write_decision with
-  fix_id {{fix_id}}, the decision, and the hint for a retry. After the tool confirms, say
-  goodbye and end the call.
+  retry: try again with a hint from the engineer.
+- When proof failed because an existing test broke while the exploit was blocked, explain the
+  trade-off before asking for a hint. The fix closes the hole, but it changes behavior that the
+  test still expects, and you are not allowed to edit tests yourself. Then ask the useful
+  question directly, for example: "Should I update that test to match the safe behavior?"
+  A yes is the hint; you don't need them to word it.
+- When you have a decision, repeat it back in one sentence and call write_decision with fix_id
+  {{fix_id}}, the decision, and for a retry the hint in plain words (for example "you can update
+  the admin sort test"). After the tool confirms, say goodbye.
 - Don't offer options other than ship, hold or retry. Don't discuss anything unrelated."""
 
 FIRST_MESSAGE = (
     "Hi, this is Trust Issues. I couldn't prove a fix for a {{vuln_class}} in {{file}}: "
     "{{failed_check}}. Do you want me to ship it, hold it, or retry with a hint?"
 )
+
+
+# Silence before the agent speaks again; the default 7 seconds makes it nag a busy engineer.
+TURN_TIMEOUT_SECS = 20
+
+
+def spoken_test(nodeid):
+    """tests/test_admin.py::test_orders_custom_sort_expression -> "the admin test for orders custom sort expression"."""
+    path, _, name = nodeid.partition("::")
+    module = path.rsplit("/", 1)[-1].removesuffix(".py").removeprefix("test_").replace("_", " ")
+    name = name.split("[", 1)[0].removeprefix("test_").replace("_", " ")
+    return f"the {module} test for {name}" if name else f"the {module} tests"
 
 
 def first_message(brief: dict):
@@ -83,6 +109,24 @@ def conversation(conversation_id):
 def transcript_text(conv):
     lines = []
     for turn in conv.get("transcript") or []:
+        role = turn.get("role", "?")
         if turn.get("message"):
-            lines.append(f'{turn.get("role", "?")}: {turn["message"]}')
+            lines.append(f'{role}: {turn["message"]}')
+        for call in turn.get("tool_calls") or []:
+            lines.append(f'{role}: [{call.get("tool_name")} {call.get("params_as_json") or ""}]')
     return "\n".join(lines)
+
+
+def find_conversation(fix_id, since_unix, limit=10):
+    """The agent's conversation about `fix_id` (a widget call has no id handed to us)."""
+    resp = httpx.get(f"{API}/v1/convai/conversations", headers=_headers(), timeout=30,
+                     params={"agent_id": env("ELEVENLABS_AGENT_ID"), "page_size": limit})
+    resp.raise_for_status()
+    for conv in resp.json().get("conversations", []):
+        if conv.get("start_time_unix_secs", 0) < since_unix - 5:
+            continue
+        detail = conversation(conv["conversation_id"])
+        dyn = (detail.get("conversation_initiation_client_data") or {}).get("dynamic_variables") or {}
+        if dyn.get("fix_id") == fix_id:
+            return conv["conversation_id"]
+    return None

@@ -16,7 +16,7 @@ from pathlib import Path
 
 from . import semgrep, voice
 from .agent import get_agent
-from .config import DECISION_TIMEOUT, MAX_ESCALATIONS, MAX_PROOFS, RUNS_DIR, ROOT
+from .config import DECISION_TIMEOUT, MAX_ESCALATIONS, MAX_PROOFS, RUNS_DIR, ROOT, env
 from .ledger import get_ledger, normalize, now, pending_escalation
 from .models import Finding, Patch, Proof
 from .prove import Harness
@@ -54,8 +54,8 @@ def failed_check(proof: Proof):
     if proof.exploit_post:
         return "the exploit still works on the patched code"
     if not proof.suite_pass:
-        names = ", ".join(t.rsplit("::", 1)[-1] for t in proof.failing_tests) or "the suite"
-        return f"the fix breaks an existing test, {names}"
+        names = ", ".join(voice.spoken_test(t) for t in proof.failing_tests) or "the test suite"
+        return f"the fix closes the hole but breaks {names}"
     if not proof.semgrep_clear:
         if proof.details.get("semgrep", {}).get("introduced"):
             return "the patch introduces a new security finding"
@@ -137,16 +137,19 @@ def brief_for(finding: Finding, attempt, proof: Proof):
     return {
         "fix_id": finding.fix_id, "vuln_class": "SQL injection", "file": finding.path,
         "failed_check": failed_check(proof), "attempts": attempt,
-        "failing_tests": ", ".join(proof.failing_tests) or "none",
+        "failing_tests": ", ".join(voice.spoken_test(t) for t in proof.failing_tests) or "none",
     }
 
 
 def escalate(finding: Finding, attempt, proof: Proof, patch: Patch, number, timeout=DECISION_TIMEOUT):
     """Write the escalation row, call on-call, and return the escalation row once decided."""
     ledger = get_ledger()
-    ledger.insert(proof_row(finding, attempt, proof, patch, verdict="escalated"))
     brief = brief_for(finding, attempt, proof)
+    row = proof_row(finding, attempt, proof, patch, verdict="escalated")
+    row["evidence"]["brief"] = brief  # the dashboard widget hands the agent the same brief
+    ledger.insert(row)
     conversation_id = None
+    started = time.time()
     if voice.configured():
         say(f"escalation {number}: calling on-call about {finding.fix_id}")
         try:
@@ -155,8 +158,13 @@ def escalate(finding: Finding, attempt, proof: Proof, patch: Patch, number, time
             say(f"call failed ({exc!r}); decide from the dashboard instead")
     if not conversation_id:
         say(f"escalation {number}: {brief['failed_check']}")
-        say(f"decide on the dashboard, or: trust decide {finding.fix_id} ship|hold|retry --hint '...'")
+        say(f"decide on the dashboard, or: trust-issues decide {finding.fix_id} ship|hold|retry --hint '...'")
     row = wait_for_decision(finding.fix_id, attempt, timeout=timeout)
+    if not conversation_id and env("ELEVENLABS_AGENT_ID") and env("ELEVENLABS_API_KEY") and row["decision"]:
+        try:  # a widget call: find it by the fix id it was handed
+            conversation_id = voice.find_conversation(finding.fix_id, started)
+        except Exception as exc:
+            say(f"couldn't look up the widget call: {exc!r}")
     if conversation_id:
         transcript = fetch_transcript(conversation_id)
         if transcript:
