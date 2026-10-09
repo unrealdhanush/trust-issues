@@ -36,31 +36,76 @@ fix_attempts(fix_id, attempt, vuln_class, file, rule_id,
 | B · Prove | Exploit test, Semgrep re-scan, suite run, verdict with evidence, test-edit guard |
 | C · Ledger + Voice + Demo | ClickHouse table and dashboard, ElevenLabs agent with two webhook tools (read ledger / write decision), demo script |
 
-## Setup
-
-Copy `.env.example` to `.env` and fill it in:
+## Quickstart
 
 ```
-OPENAI_API_KEY=
-CLICKHOUSE_URL=
-CLICKHOUSE_PASSWORD=
-ELEVENLABS_API_KEY=
-TWILIO_ACCOUNT_SID=
-TWILIO_AUTH_TOKEN=
-TWILIO_FROM_NUMBER=
-ONCALL_PHONE_NUMBER=
+uv sync                                   # Python deps, plus the `trust` CLI
+uv tool install semgrep                   # Semgrep CLI + its built-in MCP server
+cp .env.example .env                      # fill in what you have; everything is optional offline
+
+uv run trust serve                        # dashboard + webhook tools on http://localhost:8000
+uv run trust run --only app/users.py      # bug 1: proves itself, nobody is called
+uv run trust run --only app/admin.py      # bug 2: fails proof twice, then escalates
+uv run trust decide <fix_id> retry --hint "you can update the admin sort test"
+uv run trust ledger                       # the proof trail
+uv run pytest -q                          # the harness's own tests
 ```
 
-Install Semgrep and start its MCP server:
+Use `semgrep mcp`, not `uvx semgrep-mcp`: the standalone package crashes on startup with current
+pydantic (`ImportError: eval_type_backport`).
+
+With no keys set, the loop runs fully offline: `TRUST_AGENT=scripted` replays `fixtures/scripted`,
+the ledger is `runs/ledger.jsonl`, and the escalation is decided from the dashboard or `trust decide`.
+Each piece switches to the real service as soon as its env vars are set.
+
+| Piece | Offline default | Real service once set |
+| --- | --- | --- |
+| Patch + exploit agent | `fixtures/scripted` | OpenAI Responses API (`OPENAI_API_KEY`, `OPENAI_MODEL`) |
+| Detect + re-scan | Semgrep MCP (`semgrep mcp`), CLI fallback | same |
+| Ledger | `runs/ledger.jsonl` | ClickHouse (`CLICKHOUSE_URL`, `CLICKHOUSE_PASSWORD`) |
+| Escalation | dashboard buttons / `trust decide` | ElevenLabs outbound call via Twilio (see below) |
+
+### Voice setup (Track C)
+
+1. `uv run trust serve`, then `cloudflared tunnel --url http://localhost:8000` and put the URL in `PUBLIC_BASE_URL`.
+2. `uv run python scripts/setup_elevenlabs.py`: creates the `read_ledger` and `write_decision` webhook
+   tools and the agent, imports the Twilio number, and prints `ELEVENLABS_AGENT_ID` and
+   `ELEVENLABS_PHONE_NUMBER_ID` for `.env`.
+3. Set `ONCALL_PHONE_NUMBER`. A Twilio trial account can only dial verified numbers.
+
+With `ELEVENLABS_AGENT_ID` set, the dashboard also shows the ElevenLabs web widget on a pending
+escalation, which is the no-phone fallback.
+
+## Layout
 
 ```
-uv tool install semgrep        # or: pip install semgrep
-semgrep mcp                    # stdio MCP server, built into semgrep >= 1.130
+target/             seeded Flask app: bug 1 in app/users.py, bug 2 in app/admin.py (Track A)
+trust/semgrep.py    detection and re-scan through the Semgrep MCP server, CLI fallback (A/B)
+trust/agent.py      OpenAI patch + exploit agent, and the scripted stand-in (A)
+trust/prove.py      the prove harness: exploit flip, re-scan, suite, verdict (B)
+trust/guard.py      the agent may not edit what grades it (B)
+trust/pytest_probe.py  pytest plugin that tells "exploit landed" from "test crashed" (B)
+trust/loop.py       orchestrator + CLI: retries, escalation, ship/hold/retry (all)
+trust/ledger.py     ClickHouse ledger with a local JSONL fallback (C)
+trust/server.py     webhook tools for the voice agent, dashboard API (C)
+trust/voice.py      ElevenLabs outbound call and transcript (C)
+trust/dashboard.html  live ledger view and decision fallback (C)
+scripts/setup_elevenlabs.py  one-time agent, tools and phone number setup (C)
+fixtures/scripted/  deterministic agent output for rehearsal
+tests/              tests for the harness, ledger and webhooks
 ```
 
-The standalone `uvx semgrep-mcp` package crashes on startup with current pydantic (`ImportError: eval_type_backport`). Use `semgrep mcp`, or pin pydantic: `uvx --with 'pydantic<2.12' semgrep-mcp`.
+## How proof works
 
-Offline scans use `semgrep scan --config p/python --metrics off`. The relevant rule is `python.flask.security.injection.tainted-sql-string.tainted-sql-string`.
+An exploit test asserts the safe behavior, so it must fail with an `AssertionError` on the
+original code ("lands") and pass on the patch ("blocked"). A test that crashes, or that passes on
+the original, proves nothing and is rejected as invalid. The suite runs on the patched copy without the
+exploit. The Semgrep re-scan must show no SQLi finding left in the file, and no new one in any other
+changed file. The guard fails any attempt that changes tests, conftest, pytest or Semgrep config,
+plants the exploit file, adds `nosemgrep`, or adds code that detects the test harness.
+
+A `retry` decision from on-call unlocks exactly the test files that failed in the last attempt,
+and nothing else. Every attempt, escalation, decision, hint and transcript lands in the ledger.
 
 ## Known gotcha for Prove
 

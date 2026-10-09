@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trust Issues</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --panel: #ffffff; --ink: #1c1c1a; --muted: #6b6b66; --line: #e3e2dd;
+    --ok: #1f7a4d; --ok-bg: #e3f3ea; --bad: #b42318; --bad-bg: #fde8e6;
+    --warn: #9a5b00; --warn-bg: #fff1d6; --accent: #3b4fd8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141413; --panel: #1d1d1b; --ink: #ededea; --muted: #9a9a94; --line: #2e2e2b;
+      --ok: #5fd39a; --ok-bg: #173325; --bad: #ff8a7a; --bad-bg: #3a1a16;
+      --warn: #f3b955; --warn-bg: #3a2b10; --accent: #8e9bff;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 32px 16px 64px; }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  h1 { margin: 0; font-size: 26px; letter-spacing: -0.01em; }
+  .tag { color: var(--muted); margin: 4px 0 0; }
+  .meta { color: var(--muted); font-size: 13px; }
+  section { margin-top: 28px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 10px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  .fix { margin-bottom: 14px; }
+  .fix-head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: baseline; }
+  .fix-head code { font-size: 14px; }
+  .status { font-weight: 600; padding: 2px 10px; border-radius: 999px; font-size: 13px; }
+  .s-proven { color: var(--ok); background: var(--ok-bg); }
+  .s-failed, .s-held { color: var(--bad); background: var(--bad-bg); }
+  .s-escalated, .s-waiting { color: var(--warn); background: var(--warn-bg); }
+  .s-shipped { color: var(--accent); background: transparent; border: 1px solid var(--accent); }
+  .table-wrap { overflow-x: auto; margin-top: 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 7px 8px; border-top: 1px solid var(--line); vertical-align: top; white-space: nowrap; }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; border-top: 0; }
+  td.why { white-space: normal; color: var(--muted); min-width: 260px; }
+  .pill { display: inline-block; min-width: 46px; text-align: center; padding: 1px 6px; border-radius: 6px; font-size: 12px; font-weight: 600; }
+  .y { color: var(--ok); background: var(--ok-bg); }
+  .n { color: var(--bad); background: var(--bad-bg); }
+  .call { border-color: var(--warn); }
+  .call p { margin: 6px 0 12px; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .actions input { flex: 1 1 260px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; }
+  button { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
+  button.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .empty { color: var(--muted); }
+  details { margin-top: 8px; }
+  summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+  pre { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px; overflow-x: auto; font-size: 12px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>Trust Issues</h1>
+      <p class="tag">Autonomous when it can prove it. One phone call when it can't.</p>
+    </div>
+    <div class="meta" id="meta">loading…</div>
+  </header>
+
+  <section id="call-section" hidden>
+    <h2>Waiting on on-call</h2>
+    <div id="calls"></div>
+  </section>
+
+  <section>
+    <h2>Fixes</h2>
+    <div id="fixes"><p class="empty">No fixes yet. Run <code>trust run</code>.</p></div>
+  </section>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const pill = (ok, yes = "pass", no = "fail") => `<span class="pill ${ok ? "y" : "n"}">${ok ? yes : no}</span>`;
+let agentId = "";
+let widgetFor = null;
+
+function group(rows) {
+  const fixes = new Map();
+  for (const r of rows) {
+    if (!fixes.has(r.fix_id)) fixes.set(r.fix_id, []);
+    fixes.get(r.fix_id).push(r);
+  }
+  return [...fixes.values()];
+}
+
+function status(rows) {
+  const last = rows[rows.length - 1];
+  if (rows.some((r) => r.verdict === "proven")) return ["proven", "proven"];
+  const esc = rows.filter((r) => r.verdict === "escalated");
+  const lastEsc = esc[esc.length - 1];
+  if (lastEsc && !lastEsc.decision) return ["waiting", "waiting on on-call"];
+  if (lastEsc && lastEsc.decision === "ship" && last === lastEsc) return ["shipped", "shipped without proof"];
+  if (lastEsc && lastEsc.decision === "hold" && last === lastEsc) return ["held", "held"];
+  return [last.verdict === "escalated" ? "escalated" : "failed", "proving…"];
+}
+
+function renderFix(rows) {
+  const first = rows[0];
+  const [cls, label] = status(rows);
+  const body = rows.map((r) => {
+    const ev = JSON.parse(r.evidence || "{}");
+    if (r.verdict === "escalated") {
+      const decided = r.decision ? `<strong>${esc(r.decision)}</strong>${r.hint ? ` · “${esc(r.hint)}”` : ""}` : "ringing on-call…";
+      const t = r.transcript ? `<details><summary>call transcript</summary><pre>${esc(r.transcript)}</pre></details>` : "";
+      return `<tr><td>#${r.attempt}</td><td colspan="5"><span class="status s-escalated">escalated</span></td><td class="why">${decided}${t}</td></tr>`;
+    }
+    const why = (ev.reasons || []).map(esc).join("<br>") || (r.verdict === "proven" ? "all checks hold" : "");
+    const diff = ev.diff ? `<details><summary>diff</summary><pre>${esc(ev.diff)}</pre></details>` : "";
+    return `<tr>
+      <td>#${r.attempt}</td>
+      <td>${pill(r.exploit_pre, "lands", "misses")}</td>
+      <td>${pill(!r.exploit_post, "blocked", "lands")}</td>
+      <td>${pill(r.semgrep_clear, "clean", "flagged")}</td>
+      <td>${pill(r.suite_pass)}</td>
+      <td>${pill(!(ev.tamper || []).length, "clean", "tamper")}</td>
+      <td class="why">${why}${diff}</td></tr>`;
+  }).join("");
+  return `<div class="card fix">
+    <div class="fix-head"><div><code>${esc(first.file)}</code> · ${esc(first.rule_id.split(".").pop())}</div>
+    <span class="status s-${cls}">${label}</span></div>
+    <div class="table-wrap"><table>
+      <tr><th>Try</th><th>Exploit on original</th><th>Exploit on patch</th><th>Semgrep</th><th>Suite</th><th>Guard</th><th>Evidence</th></tr>
+      ${body}
+    </table></div></div>`;
+}
+
+function renderCalls(rows) {
+  const waiting = group(rows).map((g) => g.filter((r) => r.verdict === "escalated" && !r.decision).pop()).filter(Boolean);
+  $("#call-section").hidden = waiting.length === 0;
+  if (!waiting.length) { $("#calls").innerHTML = ""; widgetFor = null; return; }
+  const r = waiting[0];
+  if (widgetFor === r.fix_id + r.attempt) return;  // don't wipe a hint mid-typing
+  widgetFor = r.fix_id + r.attempt;
+  const ev = JSON.parse(r.evidence || "{}");
+  const widget = agentId
+    ? `<elevenlabs-convai agent-id="${esc(agentId)}" dynamic-variables='${esc(JSON.stringify({ fix_id: r.fix_id, vuln_class: "SQL injection", file: r.file, failed_check: (ev.reasons || [])[0] || "proof failed", attempts: String(r.attempt), failing_tests: (r.failing_tests || []).join(", ") || "none" }))}'></elevenlabs-convai>`
+    : "";
+  $("#calls").innerHTML = `<div class="card call">
+    <strong>${esc(r.fix_id)}</strong> couldn't be proven after ${r.attempt} attempts.
+    <p>${(ev.reasons || []).map(esc).join("<br>")}</p>
+    <div class="actions">
+      <input id="hint" placeholder="Hint for a retry, e.g. you can update the admin sort test">
+      <button class="primary" data-d="retry">Retry with hint</button>
+      <button data-d="ship">Ship</button>
+      <button data-d="hold">Hold</button>
+    </div>${widget}</div>`;
+  for (const b of document.querySelectorAll("#calls button")) {
+    b.onclick = async () => {
+      const res = await fetch("/api/decision", { method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ fix_id: r.fix_id, decision: b.dataset.d, hint: $("#hint").value }) });
+      if (!res.ok) alert((await res.json()).detail);
+      refresh();
+    };
+  }
+  if (agentId && !document.querySelector("script[data-convai]")) {
+    const s = document.createElement("script");
+    s.src = "https://unpkg.com/@elevenlabs/convai-widget-embed";
+    s.async = true; s.dataset.convai = "1";
+    document.body.appendChild(s);
+  }
+}
+
+async function refresh() {
+  try {
+    const { ledger, rows } = await (await fetch("/api/rows")).json();
+    $("#meta").textContent = `${ledger} ledger · ${rows.length} rows · ${new Date().toLocaleTimeString()}`;
+    const fixes = group(rows).reverse();
+    $("#fixes").innerHTML = fixes.length ? fixes.map(renderFix).join("") : `<p class="empty">No fixes yet. Run <code>trust run</code>.</p>`;
+    renderCalls(rows);
+  } catch (e) {
+    $("#meta").textContent = "server unreachable";
+  }
+}
+
+fetch("/api/config").then((r) => r.json()).then((c) => { agentId = c.agent_id || ""; }).finally(refresh);
+setInterval(refresh, 2000);
+</script>
+</body>
+</html>
