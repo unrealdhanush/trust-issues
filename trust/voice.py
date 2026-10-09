@@ -49,7 +49,8 @@ The decision:
   A yes is the hint; you don't need them to word it.
 - When you have a decision, repeat it back in one sentence and call write_decision with fix_id
   {{fix_id}}, the decision, and for a retry the hint in plain words (for example "you can update
-  the admin sort test"). After the tool confirms, say goodbye.
+  the admin sort test"). After the tool confirms, say one short goodbye sentence and then
+  call end_call straight away. Don't keep talking after the goodbye.
 - Don't offer options other than ship, hold or retry. Don't discuss anything unrelated."""
 
 FIRST_MESSAGE = (
@@ -57,6 +58,15 @@ FIRST_MESSAGE = (
     "{{failed_check}}. Do you want me to ship it, hold it, or retry with a hint?"
 )
 
+
+# ElevenLabs' built-in hang-up tool; without it the agent lingers after the decision.
+END_CALL_TOOL = {
+    "type": "system",
+    "name": "end_call",
+    "description": "End the call right after your goodbye, once write_decision has confirmed the "
+                   "decision, or as soon as the engineer says goodbye or asks to hang up.",
+    "params": {"system_tool_type": "end_call"},
+}
 
 # Silence before the agent speaks again; the default 7 seconds makes it nag a busy engineer.
 TURN_TIMEOUT_SECS = 20
