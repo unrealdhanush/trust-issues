@@ -137,7 +137,8 @@ def findings_delta(orig, patched, finding: Finding, changed_paths, cache=None):
 
     def scan(root):
         files = [Path(root) / p for p in paths if (Path(root) / p).exists()]
-        return semgrep.scan(files)
+        results, engine = semgrep.scan(files)
+        return results + semgrep.scan_ai_rules(files), engine
 
     key = tuple(paths)
     if key not in cache:
@@ -155,10 +156,19 @@ def findings_delta(orig, patched, finding: Finding, changed_paths, cache=None):
             baseline[semgrep.fingerprint(r, orig)] += 1
 
     span = target_span(patched, finding)
-    unfixed, introduced, preexisting, notes = [], [], [], []
+    unfixed, introduced, preexisting, notes, ai_patch = [], [], [], [], []
     for r in after:
         rel = Path(r["path"]).resolve().relative_to(Path(patched).resolve()).as_posix()
         fp = semgrep.fingerprint(r, patched)
+        if semgrep.is_ai_rule(r):
+            # Judged by our AI-patch rules: new hits are the patch's doing, wherever they are.
+            if baseline[fp] > 0:
+                baseline[fp] -= 1
+                preexisting.append(describe(r, patched))
+            else:
+                introduced.append(describe(r, patched))
+                ai_patch.append(describe(r, patched))
+            continue
         if rel == finding.path and span and span[0] <= r["start"]["line"] <= span[1] and semgrep.is_sqli(r):
             unfixed.append(describe(r, patched))
         elif baseline[fp] > 0:
@@ -171,7 +181,7 @@ def findings_delta(orig, patched, finding: Finding, changed_paths, cache=None):
     clear = not unfixed and not introduced
     return clear, {
         "engine": engine, "targeted": fixed, "unfixed": unfixed, "introduced": introduced,
-        "preexisting": preexisting, "notes": notes,
+        "ai_patch": ai_patch, "preexisting": preexisting, "notes": notes,
     }
 
 
@@ -256,8 +266,11 @@ class Harness:
         details["semgrep"] = scan
         if scan["unfixed"]:
             reasons.append(f"Semgrep still flags `{self.finding.function}`: {', '.join(scan['unfixed'])}")
-        if scan["introduced"]:
-            reasons.append(f"the patch introduces new findings: {', '.join(scan['introduced'])}")
+        if scan["ai_patch"]:
+            reasons.append(f"Semgrep's AI-patch rules caught the patch: {', '.join(scan['ai_patch'])}")
+        built_in = [f for f in scan["introduced"] if f not in scan["ai_patch"]]
+        if built_in:
+            reasons.append(f"the patch introduces new findings: {', '.join(built_in)}")
 
         slop = scope.check(self.original, patched, self.finding)
         if slop:

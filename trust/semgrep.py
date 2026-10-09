@@ -7,10 +7,11 @@ import subprocess
 from pathlib import Path
 
 from . import code
-from .config import env
+from .config import ROOT, env
 from .models import Finding
 
 CLI_CONFIG = env("SEMGREP_CONFIG", "p/python")
+AI_RULES = Path(env("TRUST_AI_RULES", str(ROOT / "rules" / "ai-patch.yml")))
 PREFERRED_RULE = "tainted-sql-string"
 
 
@@ -69,9 +70,35 @@ def scan(paths, prefer_mcp=True):
     return results, engine
 
 
+def is_ai_rule(result):
+    return result.get("extra", {}).get("metadata", {}).get("trust-issues") == "ai-patch" \
+        or result["check_id"].rsplit(".", 1)[-1].startswith("ai-patch-")
+
+
 def is_sqli(result):
+    if is_ai_rule(result):
+        return False  # our AI-patch rules judge the patch; they don't open new findings
     cwes = result.get("extra", {}).get("metadata", {}).get("cwe", [])
     return any("CWE-89" in c for c in cwes) or "sql" in result["check_id"].lower()
+
+
+def scan_ai_rules(paths):
+    """Our AI-patch rule pack (rules/ai-patch.yml), with --disable-nosem: a patch must not be able
+    to opt out of the scan that judges it with a `# nosemgrep` comment. CLI only, because the MCP
+    server's custom-rule tool always honours nosemgrep."""
+    paths = [str(Path(p).resolve()) for p in paths]
+    if not paths or not AI_RULES.exists() or env("TRUST_AI_RULES_ENABLED", "1") != "1":
+        return []
+    out = subprocess.run(
+        ["semgrep", "scan", "--config", str(AI_RULES), "--disable-nosem", "--metrics", "off",
+         "--quiet", "--json", *paths], capture_output=True, text=True, timeout=300,
+    )
+    if out.returncode not in (0, 1):
+        raise RuntimeError(f"semgrep (AI-patch rules) failed: {out.stderr[-500:]}")
+    results = json.loads(out.stdout)["results"]
+    for r in results:
+        r["path"] = str(Path(r["path"]).resolve())
+    return results
 
 
 def is_security(result):

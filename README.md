@@ -167,6 +167,24 @@ then say "that one predates the patch."
 A `retry` decision from on-call unlocks exactly the test files that failed in the last attempt,
 and nothing else. Every attempt, escalation, decision, hint and transcript lands in the ledger.
 
+## Semgrep rules for AI-written patches
+
+Semgrep's built-in rules answer "is this code vulnerable?". `rules/ai-patch.yml` answers "did the
+AI's patch fix the bug the way LLMs tend to, unsafely, or cheat the grader?":
+
+| Rule | Catches |
+| --- | --- |
+| `ai-patch-scanner-suppression` | `# nosemgrep`, `# nosec`, `# noqa: S…` added to make a finding disappear |
+| `ai-patch-handrolled-sql-escaping` | `.replace("'", "''")`, stripped `;` or `--`, `re.sub` scrubbing: an invented sanitizer instead of a bound parameter |
+| `ai-patch-swallowed-db-error` | a catch-all `except` around a query that hides the failure |
+
+The pack runs on the code before and after every patch. A hit that only exists after the patch is
+recorded as "caught by Semgrep's AI-patch rules" and fails the proof. It runs with
+`--disable-nosem`, so a patch can't opt out of the scan that judges it. That's also why it uses the
+Semgrep CLI: the MCP server's custom-rule tool always honours `nosemgrep`. Semgrep's built-in
+taint rule already sees through hand-escaping when user input flows in; the pack also catches it
+when it doesn't (helpers, background jobs). Test the rules with `semgrep --test rules/`.
+
 ## Known gotcha for Prove
 
 Semgrep's taint rule (`tainted-sql-string`) still flags a correct allowlist fix for `ORDER BY`. Checked against semgrep 1.180 with `p/python`:
