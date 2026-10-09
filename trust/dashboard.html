@@ -3,98 +3,76 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Trust Issues</title>
+<title>Trust Issues · Security workspace</title>
 <style>
-  :root { --bg:#f2f4f8; --panel:#fff; --ink:#1d1d1f; --muted:#6e6e73; --line:#e8e8ed; --ok:#237b4b; --ok-bg:#eef7f0; --bad:#b83635; --bad-bg:#fff0ef; --warn:#8f611c; --warn-bg:#fff6e8; --accent:#0071e3; }
-  * { box-sizing:border-box; }
-  body { margin:0; min-height:100vh; background:var(--bg); background-image:radial-gradient(ellipse at 5% 25%,#dbe8f580,transparent 45%),radial-gradient(ellipse at 100% 55%,#e8e1f180,transparent 40%); color:var(--ink); font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; -webkit-font-smoothing:antialiased; }
-  main { max-width:1200px; margin:auto; padding:0 40px 48px; }
-  header { display:flex; justify-content:space-between; align-items:center; gap:20px; min-height:88px; border-bottom:1px solid #dfe3eb; }
-  .brand { display:flex; align-items:center; gap:12px; }
-  .brand-mark { display:grid; place-items:center; width:40px; height:40px; border-radius:13px; color:white; background:linear-gradient(145deg,#449ef6,#0071e3); box-shadow:0 5px 14px #0071e31a; font:600 24px -apple-system,sans-serif; }
-  h1 { margin:0; font-size:20px; font-weight:600; letter-spacing:-.7px; }
-  .eyebrow { font-size:11px; font-weight:500; color:var(--muted); letter-spacing:.01em; }
-  .brand .eyebrow { font-size:10px; margin-top:1px; }
-  .meta { color:var(--muted); font-size:11px; max-width:310px; text-align:right; }
-  .hero { display:grid; grid-template-columns:1.1fr 1fr; gap:56px; align-items:center; padding:52px 4px 44px; }
-  .hero .eyebrow { color:var(--accent); font-size:12px; }
-  .hero h2 { font-size:clamp(42px,5.5vw,66px); font-weight:600; line-height:1.05; letter-spacing:-3px; color:var(--ink); margin:16px 0 20px; }
-  .hero h2 span { color:#727b8d; }
-  .tag { color:var(--muted); max-width:410px; margin:0; font-size:16px; line-height:1.65; }
-  .principle { display:inline-flex; align-items:center; gap:8px; margin-top:24px; color:#3e536b; font-size:12px; } .principle span { display:grid; place-items:center; width:20px; height:20px; border-radius:50%; color:var(--accent); background:#e5effb; }
-  .protocol { background:#ffffffd9; border:1px solid #fff; border-radius:22px; box-shadow:0 16px 48px #27374e08; padding:22px 24px 16px; }
-  .protocol-head { display:flex; justify-content:space-between; padding-bottom:14px; border-bottom:1px solid var(--line); font:10px ui-monospace,SFMono-Regular,monospace; letter-spacing:.06em; color:var(--muted); }
-  .flow { display:flex; flex-direction:column; padding:8px 0; }
-  .flow > div { display:flex; gap:16px; align-items:center; padding:12px 0; position:relative; }
-  .flow > div:not(:last-child)::after { content:""; position:absolute; left:17px; top:49px; bottom:-12px; width:1px; background:#dce5ef; }
-  .flow-icon { flex:none; width:35px; height:35px; border:1px solid #dce5ef; border-radius:11px; display:grid; place-items:center; color:#47688e; background:#f2f6fb; font:11px ui-monospace,SFMono-Regular,monospace; z-index:1; }
-  .flow > div:nth-child(3) .flow-icon { color:var(--ok); background:var(--ok-bg); border-color:#d9eadd; } .flow > div:nth-child(4) .flow-icon { color:var(--warn); background:var(--warn-bg); border-color:#f0e3cf; }
-  .flow b { display:block; font-size:14px; font-weight:600; letter-spacing:-.2px; } .flow small { display:block; color:var(--muted); font-size:11px; margin-top:3px; }
-  .protocol-foot { border-top:1px solid var(--line); padding-top:12px; color:var(--muted); font-size:10px; }
-  .stats { display:grid; grid-template-columns:repeat(4,1fr); margin-bottom:34px; background:#ffffff8c; border:1px solid #fff; border-radius:18px; padding:20px 0; }
-  .stat { padding:0 24px; } .stat:not(:last-child) { border-right:1px solid #e0e5ed; }
-  .stat strong { display:block; font-size:32px; font-weight:500; line-height:1.2; letter-spacing:-1px; margin-top:8px; font-variant-numeric:tabular-nums; } .stat:nth-child(2) strong { color:var(--ok); } .stat:nth-child(3) strong { color:var(--warn); } .stat:nth-child(4) strong { color:#47688e; }
-  section { margin-top:26px; } [hidden] { display:none!important; }
-  .section-head { display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:16px; padding:0 4px; }
-  section h2 { font-size:18px; font-weight:600; margin:0; letter-spacing:-.4px; } .section-head span { color:var(--muted); font-size:11px; }
-  .card { background:var(--panel); border:1px solid #fff; border-radius:16px; padding:24px; box-shadow:0 8px 36px #27374e06; }
-  .fix { margin-bottom:16px; border-left:3px solid #c0d5ee; } .fix-head { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:center; padding-bottom:16px; font-size:12px; color:var(--muted); } .fix-head code { font-size:13px; font-weight:600; color:var(--ink); overflow-wrap:anywhere; }
-  .status { font-weight:500; padding:5px 10px; border-radius:999px; font-size:11px; }
-  .s-proven { color:var(--ok); background:var(--ok-bg); } .s-failed,.s-held { color:var(--bad); background:var(--bad-bg); } .s-escalated,.s-waiting { color:var(--warn); background:var(--warn-bg); } .s-shipped { color:#7155b6; background:#f5f1fc; }
-  .table-wrap { overflow-x:auto; } table { width:100%; border-collapse:collapse; font-size:12px; } th,td { text-align:left; padding:12px 8px; border-top:1px solid var(--line); vertical-align:top; white-space:nowrap; } th { color:var(--muted); font-size:10px; font-weight:500; background:#fafafb; } td.why { white-space:normal; min-width:220px; color:var(--muted); } .old { font-size:11px; }
-  .pill { display:inline-block; min-width:46px; text-align:center; padding:3px 7px; border-radius:5px; font-size:10px; font-weight:500; } .y { color:var(--ok); background:var(--ok-bg); } .n { color:var(--bad); background:var(--bad-bg); }
-  .call { background:#fffcf5; border:1px solid #efe2c9; } .call p { margin:8px 0 20px; color:var(--muted); }
-  .actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; } .actions input { flex:1 1 260px; min-width:0; padding:12px 14px; border-radius:12px; border:1px solid var(--line); background:var(--panel); color:var(--ink); font:inherit; }
-  button { font:500 13px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; min-height:44px; padding:12px 18px; border-radius:999px; border:0; background:#eef0f5; color:var(--ink); cursor:pointer; transition:background .2s,transform .2s; } button:hover { background:#e2e6ed; } button:active { transform:scale(.98); } button.primary { background:var(--accent); color:#fff; } button.primary:hover { background:#0077ed; } :focus-visible { outline:3px solid #0071e380; outline-offset:4px; }
-  .empty { color:var(--muted); border:1px solid #fff; border-radius:24px; padding:42px 24px; text-align:center; background:#ffffffb8; box-shadow:0 8px 36px #27374e04; font-size:13px; } .empty strong { display:block; color:var(--ink); font-size:21px; font-weight:600; letter-spacing:-.5px; margin-bottom:8px; } .empty code { background:#eef6ff; color:var(--accent); padding:3px 7px; border-radius:5px; }
-  details { margin-top:8px; } summary { cursor:pointer; color:var(--accent); font-size:11px; } pre { background:#f5f5f7; border:1px solid var(--line); border-radius:10px; padding:12px; overflow-x:auto; font-size:11px; white-space:pre-wrap; }
-  footer { margin-top:28px; padding:0 4px; color:var(--muted); font-size:10px; }
-  @media(max-width:760px) { main { padding:0 20px 32px; } header { min-height:76px; } .meta { max-width:140px; font-size:10px; } .hero { grid-template-columns:1fr; gap:28px; padding:32px 0; } .hero h2 { font-size:49px; letter-spacing:-2.6px; } .tag { font-size:14px; } .stats { grid-template-columns:1fr 1fr; padding:0; } .stat { padding:18px 20px; } .stat:nth-child(2) { border-right:0; } .stat:nth-child(-n+2) { border-bottom:1px solid #e0e5ed; } .protocol { padding:20px; } .section-head { flex-wrap:wrap; } .card { padding:16px; } }
-  @media(prefers-reduced-motion:reduce) { *,*::before,*::after { transition:none!important; } }
+:root { --bg:#f6f7f9; --panel:#fff; --ink:#20252e; --muted:#667180; --line:#e5e9ef; --accent:#1958c6; --ok:#237347; --ok-bg:#eef8f1; --bad:#b13c35; --bad-bg:#fff1f0; --warn:#946319; --warn-bg:#fff7e9; }
+* { box-sizing:border-box; } [hidden] { display:none!important; }
+body { margin:0; background:var(--bg); color:var(--ink); font:13px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; -webkit-font-smoothing:antialiased; }
+button,input { font:inherit; } button { cursor:pointer; } button:disabled { cursor:wait; opacity:.6; } :focus-visible { outline:3px solid #1958c680; outline-offset:3px; }
+.shell { display:grid; grid-template-columns:180px minmax(0,1fr); min-height:100vh; }
+.rail { background:#fff; border-right:1px solid var(--line); padding:26px 16px; display:flex; flex-direction:column; gap:30px; }
+.brand { display:flex; align-items:center; gap:10px; padding:0 4px; font-size:14px; font-weight:650; letter-spacing:-.4px; }
+.brand-mark { flex:none; display:grid; place-items:center; width:32px; height:36px; color:var(--accent); }
+.brand small { display:block; font-size:10px; color:var(--muted); font-weight:400; letter-spacing:0; }
+nav { display:grid; gap:6px; } .nav { display:flex; align-items:center; gap:10px; text-align:left; padding:11px 12px; background:transparent; border:0; border-radius:7px; color:var(--muted); font-weight:500; } .nav:hover { background:#f6f7f9; } .nav.active { color:var(--accent); background:#edf3fe; } .nav svg { width:16px; height:16px; flex:none; } .nav .badge { margin-left:auto; font-size:10px; }
+.rail-foot { margin-top:auto; font-size:10px; color:var(--muted); padding:0 6px; } .connection { display:flex; gap:7px; align-items:center; margin-bottom:6px; } .dot { width:6px; height:6px; background:#a1a9b5; border-radius:50%; } .connected .dot { background:#33855a; }
+main { min-width:0; padding:30px 30px 40px; max-width:1540px; width:100%; margin:auto; align-self:start; }
+.top { display:flex; justify-content:space-between; align-items:flex-start; gap:18px; margin-bottom:24px; } .eyebrow { font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); } h1 { margin:5px 0 5px; font-size:25px; line-height:1.2; font-weight:600; letter-spacing:-.8px; } .subtitle { margin:0; color:var(--muted); font-size:12px; } .meta { color:var(--muted); font-size:10px; max-width:240px; text-align:right; padding-top:6px; }
+.stats { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:24px; } .stat { background:white; border:1px solid var(--line); border-radius:8px; padding:16px 18px; } .stat span { color:var(--muted); font-size:11px; } .stat strong { display:block; margin:6px 0 0; font-size:27px; font-weight:550; letter-spacing:-.8px; font-variant-numeric:tabular-nums; } .stat:nth-child(2) strong { color:var(--ok); } .stat:nth-child(3) strong { color:var(--warn); }
+.workspace { display:grid; grid-template-columns:280px minmax(0,1fr); border:1px solid var(--line); background:white; border-radius:10px; overflow:hidden; min-height:540px; }
+.queue { background:#fcfcfd; border-right:1px solid var(--line); min-width:0; } .panel-title { display:flex; justify-content:space-between; align-items:center; padding:18px; border-bottom:1px solid var(--line); } .panel-title h2 { font-size:13px; margin:0; font-weight:600; } .panel-title span { font-size:10px; color:var(--muted); }
+#fixes { padding:8px; } .queue-item { display:block; width:100%; text-align:left; border:1px solid transparent; border-radius:7px; padding:14px 12px; background:transparent; margin-bottom:6px; color:var(--ink); } .queue-item:hover { background:#f0f3f8; } .queue-item.selected { background:#edf3fe; border-color:#d6e4fc; } .queue-item .file { display:block; font:600 12px ui-monospace,SFMono-Regular,monospace; overflow-wrap:anywhere; } .queue-item .vuln { display:block; font-size:11px; color:var(--muted); margin:5px 0 12px; } .queue-meta { display:flex; justify-content:space-between; align-items:center; gap:5px; color:var(--muted); font-size:10px; }
+.status { display:inline-block; font-size:10px; padding:3px 7px; border-radius:5px; font-weight:500; } .s-proven { color:var(--ok); background:var(--ok-bg); } .s-failed,.s-held { color:var(--bad); background:var(--bad-bg); } .s-waiting,.s-escalated { color:var(--warn); background:var(--warn-bg); } .s-shipped { color:#7052a7; background:#f4effc; }
+.inspector { min-width:0; } .inspector-head { padding:22px 24px 18px; border-bottom:1px solid var(--line); } .inspector-head h2 { margin:6px 0 8px; font:600 18px ui-monospace,SFMono-Regular,monospace; letter-spacing:-.5px; overflow-wrap:anywhere; } .fix-context { color:var(--muted); font-size:11px; overflow-wrap:anywhere; } .inspector-title { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+.evidence-body { padding:20px 24px; } .attempts { display:flex; flex-wrap:wrap; gap:6px; margin:12px 0 20px; } .attempt-button { border:1px solid var(--line); border-radius:5px; padding:7px 10px; background:white; color:var(--muted); font-size:11px; } .attempt-button.active { border-color:#b8d0f5; color:var(--accent); background:#f0f5fe; }
+.proof-heading { display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:12px; } h3 { margin:0; font-size:13px; font-weight:600; } .proof-heading span { font-size:10px; color:var(--muted); }
+.gates { display:grid; grid-template-columns:1fr 1fr; gap:9px; } .gate { display:flex; gap:10px; border:1px solid var(--line); border-radius:7px; padding:13px 12px; min-width:0; } .gate-icon { flex:none; display:grid; place-items:center; width:20px; height:20px; border-radius:50%; background:var(--ok-bg); color:var(--ok); font-size:12px; } .gate.fail .gate-icon { color:var(--bad); background:var(--bad-bg); } .gate.unknown .gate-icon { color:var(--muted); background:#f0f2f5; } .gate strong { display:block; font-size:11px; font-weight:550; } .gate small { display:block; color:var(--muted); font-size:10px; margin-top:3px; }
+.reasons { margin-top:16px; background:#fafbfc; padding:12px; border-radius:6px; color:var(--muted); font-size:11px; } .reasons p { margin:4px 0; } .reasons ul { margin:5px 0; padding-left:18px; } details { margin-top:14px; border-top:1px solid var(--line); padding-top:12px; } summary { cursor:pointer; color:var(--accent); font-size:11px; } pre { white-space:pre-wrap; overflow-wrap:anywhere; background:#f6f7f9; border-radius:6px; padding:12px; font:11px/1.7 ui-monospace,SFMono-Regular,monospace; max-height:320px; overflow:auto; }
+#call-section { border-top:1px solid #eee0c6; background:#fffcf5; padding:20px 24px; } #call-section h3 { color:#7b551e; margin-bottom:10px; } .call { font-size:11px; } .call p { color:var(--muted); margin:8px 0 14px; } .actions { display:flex; flex-wrap:wrap; gap:8px; } .actions input { width:100%; border:1px solid #dfdfdf; background:#fff; padding:11px; border-radius:6px; min-width:0; } .actions button { border:1px solid #d9dee7; border-radius:6px; padding:9px 12px; background:white; color:var(--ink); font-size:11px; min-height:38px; } .actions button.primary { color:white; background:var(--accent); border-color:var(--accent); }
+.empty { padding:32px 18px; color:var(--muted); font-size:11px; text-align:center; } .empty strong { display:block; color:var(--ink); margin-bottom:6px; font-weight:550; } .empty-inspector { padding:54px 30px; text-align:center; max-width:560px; margin:auto; } .empty-inspector h2 { font-size:20px; font-weight:550; letter-spacing:-.5px; margin:18px 0 8px; } .empty-inspector p { color:var(--muted); font-size:12px; max-width:320px; margin:0 auto 22px; } .empty-shield { width:50px; height:56px; color:#a8bad2; } .empty-inspector code { display:inline-block; border:1px solid var(--line); border-radius:6px; padding:9px 18px; background:#fafbfc; font-size:12px; } .empty-inspector .gates { text-align:left; margin-top:34px; opacity:.85; } footer { font-size:10px; color:var(--muted); margin-top:16px; display:flex; justify-content:space-between; gap:12px; }
+@media(max-width:1100px) { .shell { grid-template-columns:170px minmax(0,1fr); } main { padding:24px 20px; } .workspace { grid-template-columns:230px minmax(0,1fr); } .gates { grid-template-columns:1fr; } }
+@media(max-width:760px) { .shell { display:block; } .rail { padding:14px 16px; border-right:0; border-bottom:1px solid var(--line); gap:14px; } .brand { font-size:15px; } nav { display:flex; gap:6px; } .nav { padding:8px 12px; } .rail-foot { display:none; } main { padding:22px 16px; } .top { flex-wrap:wrap; gap:6px; } .meta { text-align:left; padding:0; } .stats { grid-template-columns:1fr 1fr; gap:8px; } .stat { padding:12px; } .workspace { grid-template-columns:1fr; } .queue { border-right:0; border-bottom:1px solid var(--line); } #fixes { max-height:240px; overflow:auto; } .inspector-head,.evidence-body,#call-section { padding:18px; } .empty-inspector { padding:32px 18px; } .gates { grid-template-columns:1fr 1fr; } footer { flex-wrap:wrap; } }
+@media(max-width:420px) { .gates { grid-template-columns:1fr; } }
+@media(prefers-reduced-motion:reduce) { * { scroll-behavior:auto!important; } }
 </style>
 </head>
 <body>
+<div class="shell">
+<aside class="rail">
+  <div class="brand"><div class="brand-mark"><svg viewBox="0 0 24 26" fill="none" aria-hidden="true"><path d="M12 2 21 6v7c0 5-5 9-9 11-4-2-9-6-9-11V6l9-4Z" stroke="currentColor" stroke-width="1.5"/><path d="m8 13 3 3 5-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div>Trust Issues<small>Security workspace</small></div></div>
+  <nav aria-label="Workspace navigation">
+    <button class="nav active" data-view="overview" aria-current="page"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M3 3h5v5H3zM12 3h5v5h-5zM3 12h5v5H3zM12 12h5v5h-5z" stroke="currentColor"/></svg>Overview</button>
+    <button class="nav" data-view="fixes"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 5h12M4 10h12M4 15h12" stroke="currentColor" stroke-width="1.5"/></svg>Fixes</button>
+    <button class="nav" data-view="decisions"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 2 18 17H2L10 2Z" stroke="currentColor"/><path d="M10 7v5m0 2v1" stroke="currentColor"/></svg>Decisions<span class="badge" id="decision-count">—</span></button>
+  </nav>
+  <div class="rail-foot"><div class="connection" id="connection"><span class="dot"></span><span id="connection-label">Connecting</span></div>Evidence before confidence.</div>
+</aside>
 <main>
-  <header>
-    <div class="brand"><div class="brand-mark" aria-hidden="true"><svg width="25" height="27" viewBox="0 0 24 26" fill="none"><path d="M12 2 21 6v7c0 5-5 9-9 11-4-2-9-6-9-11V6l9-4Z" stroke="currentColor" stroke-width="1.7"/><path d="m8 13 3 3 5-6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div><h1>Trust Issues</h1><div class="eyebrow">Security control room</div></div></div>
-    <div class="meta" id="meta" role="status">Connecting to ledger…</div>
-  </header>
-  <div class="hero">
-    <div><div class="eyebrow">The autonomous security loop</div><h2>Every fix.<br><span>Accounted for.</span></h2><p class="tag">Find the vulnerability. Repair the code. Demand the proof. When a patch needs judgment, bring in your on-call engineer.</p><div class="principle"><span aria-hidden="true">✓</span> Evidence before confidence</div></div>
-    <aside class="protocol" aria-label="Security workflow">
-      <div class="protocol-head"><span>THE PROOF PROTOCOL</span><span>01 — 04</span></div>
-      <div class="flow">
-        <div><span class="flow-icon" aria-hidden="true">01</span><div class="step-copy"><b>Find the vulnerability</b><small>Establish the original exploit.</small></div></div>
-        <div><span class="flow-icon" aria-hidden="true">02</span><div class="step-copy"><b>Repair within scope</b><small>Make a focused code change.</small></div></div>
-        <div><span class="flow-icon" aria-hidden="true">03</span><div class="step-copy"><b>Prove all six checks</b><small>Block the exploit. Protect the suite.</small></div></div>
-        <div><span class="flow-icon" aria-hidden="true">04</span><div class="step-copy"><b>Escalate when needed</b><small>A human decides when proof fails.</small></div></div>
-      </div>
-      <div class="protocol-foot">Autonomous when proven. Accountable always.</div>
-    </aside>
+  <header class="top"><div><div class="eyebrow">Autonomous security</div><h1 id="page-title">Security overview</h1><p class="subtitle" id="page-subtitle">Every repair, every check, every human decision.</p></div><div class="meta" id="meta" role="status">Connecting to ledger…</div></header>
+  <div class="stats" id="stats" aria-label="Ledger summary">
+    <div class="stat"><span>Tracked fixes</span><strong id="count-total">—</strong></div>
+    <div class="stat"><span>Proven fixes</span><strong id="count-proven">—</strong></div>
+    <div class="stat"><span>Needs a human</span><strong id="count-waiting">—</strong></div>
+    <div class="stat"><span>Proof attempts</span><strong id="count-attempts">—</strong></div>
   </div>
-  <div class="stats" aria-label="Ledger summary">
-    <div class="stat"><span class="eyebrow">Tracked fixes</span><strong id="count-total">—</strong></div>
-    <div class="stat"><span class="eyebrow">Proven fixes</span><strong id="count-proven">—</strong></div>
-    <div class="stat"><span class="eyebrow">Needs a human</span><strong id="count-waiting">—</strong></div>
-    <div class="stat"><span class="eyebrow">Proof attempts</span><strong id="count-attempts">—</strong></div>
+  <div class="workspace">
+    <section class="queue" aria-label="Fix queue"><div class="panel-title"><h2 id="queue-title">Fix queue</h2><span id="queue-count">—</span></div><div id="fixes"><div class="empty">Loading fixes…</div></div></section>
+    <section class="inspector" aria-label="Evidence inspector"><div id="evidence"></div><section id="call-section" hidden><h3>Human decision required</h3><div id="calls"></div></section></section>
   </div>
-  <section id="call-section" hidden>
-    <div class="section-head"><h2>On-call decision</h2><span>Human judgment required</span></div>
-    <div id="calls"></div>
-  </section>
-  <section>
-    <div class="section-head"><h2>Patch evidence</h2><span>Six checks. Every attempt. Full receipts.</span></div>
-    <div id="fixes"><p class="empty">Loading patch evidence…</p></div>
-  </section>
-  <footer>Trust Issues · Evidence before confidence · Ledger refreshes every 2 seconds</footer>
+  <footer><span>Six checks before a fix earns its proof.</span><span>Ledger refreshes every 2 seconds</span></footer>
 </main>
-
+</div>
 <script>
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const pill = (ok, yes = "pass", no = "fail") => `<span class="pill ${ok ? "y" : "n"}">${ok ? yes : no}</span>`;
 let agentId = "";
 let widgetFor = null;
+let ledgerRows = [];
+let selectedFix = null;
+let selectedAttempt = null;
+let currentView = "overview";
+let renderedEvidence = "";
+let renderedQueue = "";
 
 function group(rows) {
   const fixes = new Map();
@@ -113,53 +91,88 @@ function status(rows) {
   if (lastEsc && !lastEsc.decision) return ["waiting", "waiting on on-call"];
   if (lastEsc && lastEsc.decision === "ship" && last === lastEsc) return ["shipped", "shipped without proof"];
   if (lastEsc && lastEsc.decision === "hold" && last === lastEsc) return ["held", "held"];
-  return [last.verdict === "escalated" ? "escalated" : "failed", "proving…"];
+  return [last.verdict === "escalated" ? "escalated" : "failed", "proof failed"];
 }
 
+
+const gateDefinitions = [
+  ["Exploit reproduced", "The exploit lands on the original code."],
+  ["Exploit blocked", "The patched code blocks the exploit."],
+  ["Security scan", "The patch clears the Semgrep check."],
+  ["Regression suite", "Existing tests still pass."],
+  ["Test integrity", "Protected verification tests stay intact."],
+  ["Patch scope", "Changes stay within the allowed scope."]
+];
+function gateResults(r) {
+  const ev = JSON.parse(r.evidence || "{}");
+  return [r.exploit_pre, r.exploit_post == null ? null : !r.exploit_post, r.semgrep_clear, r.suite_pass,
+    r.verdict === "proven" || r.verdict === "failed" ? !(ev.tamper || []).length : null, r.scope_clean];
+}
+function renderGates(r) {
+  const results = r ? gateResults(r) : [];
+  return `<div class="gates">${gateDefinitions.map(([name, description], i) => {
+    const result = results[i];
+    const cls = result == null ? "unknown" : result ? "pass" : "fail";
+    const label = result == null ? "Not recorded" : result ? "Pass" : "Fail";
+    return `<div class="gate ${cls}"><span class="gate-icon" aria-label="${label}">${result == null ? "–" : result ? "✓" : "×"}</span><div><strong>${name}</strong><small>${description}</small></div></div>`;
+  }).join("")}</div>`;
+}
 function renderFix(rows) {
   const first = rows[0];
   const [cls, label] = status(rows);
+  const attempts = rows.filter((r) => r.verdict === "proven" || r.verdict === "failed");
+  const r = attempts.find((r) => r.attempt === selectedAttempt) || attempts[attempts.length - 1];
+  const ev = JSON.parse((r || first).evidence || "{}");
   const fn = JSON.parse(first.evidence || "{}").function || "";
-  const body = rows.map((r) => {
-    const ev = JSON.parse(r.evidence || "{}");
-    if (r.verdict === "escalated") {
-      const decided = r.decision ? `<strong>${esc(r.decision)}</strong>${r.hint ? ` · “${esc(r.hint)}”` : ""}` : "ringing on-call…";
-      const t = r.transcript ? `<details><summary>call transcript</summary><pre>${esc(r.transcript)}</pre></details>` : "";
-      return `<tr><td>#${r.attempt}</td><td colspan="6"><span class="status s-escalated">escalated</span></td><td class="why">${decided}${t}</td></tr>`;
-    }
-    const scan = ev.semgrep || {};
-    const old = (scan.preexisting || []).length ? `<br><span class="old">predates the patch: ${scan.preexisting.map(esc).join(", ")}</span>` : "";
-    const why = ((ev.reasons || []).map(esc).join("<br>") || (r.verdict === "proven" ? "all checks hold" : "")) + old;
-    const diff = ev.diff ? `<details><summary>diff</summary><pre>${esc(ev.diff)}</pre></details>` : "";
-    return `<tr>
-      <td>#${r.attempt}</td>
-      <td>${pill(r.exploit_pre, "lands", "misses")}</td>
-      <td>${pill(!r.exploit_post, "blocked", "lands")}</td>
-      <td>${pill(r.semgrep_clear, "clean", "flagged")}</td>
-      <td>${pill(r.suite_pass)}</td>
-      <td>${pill(!(ev.tamper || []).length, "clean", "tamper")}</td>
-      <td>${pill(r.scope_clean !== false, "tight", "sprawl")}</td>
-      <td class="why">${why}${diff}</td></tr>`;
-  }).join("");
-  return `<div class="card fix">
-    <div class="fix-head"><div><code>${esc(first.file)}</code>${fn ? ` · <code>${esc(fn)}</code>` : ""} · ${esc(first.rule_id.split(".").pop())}</div>
-    <span class="status s-${cls}">${label}</span></div>
-    <div class="table-wrap"><table>
-      <tr><th>Try</th><th>Exploit on original</th><th>Exploit on patch</th><th>Semgrep</th><th>Suite</th><th>Guard</th><th>Scope</th><th>Evidence</th></tr>
-      ${body}
-    </table></div></div>`;
+  const reasons = (ev.reasons || []).map((reason) => `<li>${esc(reason)}</li>`).join("");
+  const preexisting = (ev.semgrep?.preexisting || []).map(esc).join(", ");
+  const escalations = rows.filter((row) => row.verdict === "escalated").map((row) => `<details><summary>On-call · attempt ${esc(row.attempt)} · ${esc(row.decision || "awaiting decision")}</summary>${row.hint ? `<p>Hint: ${esc(row.hint)}</p>` : ""}${row.transcript ? `<pre>${esc(row.transcript)}</pre>` : `<p>No transcript recorded.</p>`}</details>`).join("");
+  return `<div class="inspector-head"><div class="inspector-title"><span class="eyebrow">Evidence inspector</span><span class="status s-${cls}">${label}</span></div><h2>${esc(first.file)}</h2><div class="fix-context">${esc(first.vuln_class || first.rule_id)}${fn ? ` · ${esc(fn)}` : ""} · ${esc(first.fix_id)}</div></div>
+    <div class="evidence-body"><div class="eyebrow">Attempt history</div><div class="attempts">${attempts.map((a) => `<button class="attempt-button ${a === r ? "active" : ""}" data-attempt="${esc(a.attempt)}" aria-pressed="${a === r}">Attempt ${esc(a.attempt)} · ${esc(a.verdict)}</button>`).join("") || '<span class="subtitle">No proof attempt recorded.</span>'}</div>
+    <div class="proof-heading"><h3>Six proof gates</h3><span>${r ? `${gateResults(r).filter((v) => v === true).length} of 6 passed` : "Awaiting evidence"}</span></div>${renderGates(r)}
+    <div class="reasons">${reasons ? `<strong>What needs attention</strong><ul>${reasons}</ul>` : `<p>${r?.verdict === "proven" ? "All six checks hold for this attempt." : "Review the recorded checks before making a decision."}</p>`}${preexisting ? `<p>Findings that predate this patch: ${preexisting}</p>` : ""}${(r?.failing_tests || []).length ? `<p>Failing tests: ${r.failing_tests.map(esc).join(", ")}</p>` : ""}</div>
+    ${ev.diff ? `<details><summary>Patch diff</summary><pre>${esc(ev.diff)}</pre></details>` : ""}${escalations}</div>`;
 }
-
+function visibleFixes() {
+  return group(ledgerRows).reverse().filter((g) => currentView !== "decisions" || status(g)[0] === "waiting");
+}
+function renderWorkspace() {
+  const fixes = visibleFixes();
+  if (!fixes.some((g) => g[0].fix_id === selectedFix)) {
+    selectedFix = fixes[0]?.[0].fix_id || null;
+    selectedAttempt = null;
+  }
+  const queueHTML = fixes.map((g, i) => {
+    const r = g[0], [cls, label] = status(g);
+    const attempts = g.filter((r) => r.verdict === "proven" || r.verdict === "failed").length;
+    return `<button class="queue-item ${r.fix_id === selectedFix ? "selected" : ""}" data-fix-index="${i}" aria-pressed="${r.fix_id === selectedFix}"><span class="file">${esc(r.file)}</span><span class="vuln">${esc(r.vuln_class || r.rule_id)}</span><span class="queue-meta"><span class="status s-${cls}">${label}</span><span>${attempts} ${attempts === 1 ? "attempt" : "attempts"}</span></span></button>`;
+  }).join("") || `<div class="empty"><strong>${currentView === "decisions" ? "No decisions waiting" : "Your fix queue is clear"}</strong>${currentView === "decisions" ? "Escalations will appear here when a human is needed." : "New findings appear here as the security loop runs."}</div>`;
+  $("#queue-count").textContent = `${fixes.length} ${fixes.length === 1 ? "fix" : "fixes"}`;
+  if (queueHTML !== renderedQueue) {
+    $("#fixes").innerHTML = queueHTML; renderedQueue = queueHTML;
+    for (const b of document.querySelectorAll("[data-fix-index]")) b.onclick = () => {
+      selectedFix = fixes[Number(b.dataset.fixIndex)][0].fix_id; selectedAttempt = null; renderWorkspace();
+    };
+  }
+  const selected = fixes.find((g) => g[0].fix_id === selectedFix);
+  const evidenceHTML = selected ? renderFix(selected) : `<div class="empty-inspector"><svg class="empty-shield" viewBox="0 0 24 26" fill="none" aria-hidden="true"><path d="M12 2 21 6v7c0 5-5 9-9 11-4-2-9-6-9-11V6l9-4Z" stroke="currentColor" stroke-width="1.2"/><path d="m8 13 3 3 5-6" stroke="currentColor" stroke-width="1.2"/></svg><h2>${currentView === "decisions" ? "No human decision needed." : "Ready for the first repair."}</h2><p>${currentView === "decisions" ? "Select Overview or Fixes to inspect the complete ledger." : "Select a fix to inspect its attempts, proof gates, and patch evidence."}</p>${currentView === "decisions" ? "" : '<code>trust run</code>'}${renderGates(null)}</div>`;
+  if (evidenceHTML !== renderedEvidence) {
+    $("#evidence").innerHTML = evidenceHTML; renderedEvidence = evidenceHTML;
+    for (const b of document.querySelectorAll("[data-attempt]")) b.onclick = () => { selectedAttempt = Number(b.dataset.attempt); renderWorkspace(); };
+  }
+  renderCalls(ledgerRows);
+}
 function renderCalls(rows) {
-  const waiting = group(rows).map((g) => g.filter((r) => r.verdict === "escalated" && !r.decision).pop()).filter(Boolean);
+  const waiting = group(rows).filter((g) => status(g)[0] === "waiting").map((g) => g.filter((r) => r.verdict === "escalated" && !r.decision).pop());
   $("#call-section").hidden = waiting.length === 0;
   if (!waiting.length) { $("#calls").innerHTML = ""; widgetFor = null; return; }
-  const r = waiting[0];
+  const r = waiting.find((r) => r.fix_id === selectedFix);
+  if (!r) { $("#call-section").hidden = true; $("#calls").innerHTML = ""; widgetFor = null; return; }
   if (widgetFor === r.fix_id + r.attempt) return;  // don't wipe a hint mid-typing
   widgetFor = r.fix_id + r.attempt;
   const ev = JSON.parse(r.evidence || "{}");
   const widget = agentId
-    ? `<elevenlabs-convai agent-id="${esc(agentId)}" dynamic-variables='${esc(JSON.stringify({ fix_id: r.fix_id, vuln_class: "SQL injection", file: r.file, failed_check: (ev.reasons || [])[0] || "proof failed", attempts: String(r.attempt), failing_tests: (r.failing_tests || []).join(", ") || "none" }))}'></elevenlabs-convai>`
+    ? `<elevenlabs-convai agent-id="${esc(agentId)}" dynamic-variables='${esc(JSON.stringify({ fix_id: r.fix_id, vuln_class: r.vuln_class || "Security vulnerability", file: r.file, failed_check: (ev.reasons || [])[0] || "proof failed", attempts: String(r.attempt), failing_tests: (r.failing_tests || []).join(", ") || "none" }))}'></elevenlabs-convai>`
     : "";
   $("#calls").innerHTML = `<div class="card call">
     <strong>${esc(r.fix_id)}</strong> couldn't be proven after ${r.attempt} attempts.
@@ -172,10 +185,18 @@ function renderCalls(rows) {
     </div>${widget}</div>`;
   for (const b of document.querySelectorAll("#calls button")) {
     b.onclick = async () => {
-      const res = await fetch("/api/decision", { method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ fix_id: r.fix_id, decision: b.dataset.d, hint: $("#hint").value }) });
-      if (!res.ok) alert((await res.json()).detail);
-      refresh();
+      const buttons = [...document.querySelectorAll("#calls button")];
+      buttons.forEach((button) => { button.disabled = true; });
+      try {
+        const res = await fetch("/api/decision", { method: "POST", headers: { "content-type": "application/json" },
+          body: JSON.stringify({ fix_id: r.fix_id, decision: b.dataset.d, hint: $("#hint").value }) });
+        if (!res.ok) alert((await res.json()).detail);
+        await refresh();
+      } catch (e) {
+        alert("Could not send the decision. Check the connection and try again.");
+      } finally {
+        buttons.forEach((button) => { button.disabled = false; });
+      }
     };
   }
   if (agentId && !document.querySelector("script[data-convai]")) {
@@ -186,24 +207,41 @@ function renderCalls(rows) {
   }
 }
 
+for (const b of document.querySelectorAll("[data-view]")) b.onclick = () => {
+  currentView = b.dataset.view;
+  for (const n of document.querySelectorAll("[data-view]")) {
+    n.classList.toggle("active", n === b);
+    if (n === b) n.setAttribute("aria-current", "page"); else n.removeAttribute("aria-current");
+  }
+  $("#stats").hidden = currentView !== "overview";
+  $("#page-title").textContent = {overview:"Security overview", fixes:"All fixes", decisions:"Human decisions"}[currentView];
+  $("#page-subtitle").textContent = {overview:"Every repair, every check, every human decision.", fixes:"Inspect each repair and the evidence behind it.", decisions:"Review failed proof before choosing the next step."}[currentView];
+  $("#queue-title").textContent = currentView === "decisions" ? "Awaiting decisions" : "Fix queue";
+  renderWorkspace();
+};
 async function refresh() {
   try {
-    const { ledger, rows } = await (await fetch("/api/rows")).json();
+    const response = await fetch("/api/rows");
+    if (!response.ok) throw new Error("Unable to read ledger");
+    const { ledger, rows } = await response.json();
+    ledgerRows = rows;
     $("#meta").textContent = `${ledger} ledger · ${rows.length} rows · ${new Date().toLocaleTimeString()}`;
-    const fixes = group(rows).reverse();
+    $("#connection").classList.add("connected"); $("#connection-label").textContent = "Ledger connected";
+    const fixes = group(rows);
+    const waiting = fixes.filter((g) => status(g)[0] === "waiting").length;
     $("#count-total").textContent = fixes.length;
     $("#count-proven").textContent = fixes.filter((g) => status(g)[0] === "proven").length;
-    $("#count-waiting").textContent = fixes.filter((g) => status(g)[0] === "waiting").length;
+    $("#count-waiting").textContent = waiting; $("#decision-count").textContent = waiting;
     $("#count-attempts").textContent = rows.filter((r) => r.verdict === "proven" || r.verdict === "failed").length;
-    $("#fixes").innerHTML = fixes.length ? fixes.map(renderFix).join("") : `<div class="empty"><strong>Ready to earn some trust.</strong>Run <code>trust run</code> to scan, patch, and collect proof. Your fixes will appear here.</div>`;
-    renderCalls(rows);
+    renderWorkspace();
   } catch (e) {
-    $("#meta").textContent = "server unreachable";
+    $("#meta").textContent = "Server unreachable · showing last received evidence";
+    $("#connection").classList.remove("connected"); $("#connection-label").textContent = "Disconnected";
   }
 }
-
-fetch("/api/config").then((r) => r.json()).then((c) => { agentId = c.agent_id || ""; }).finally(refresh);
+fetch("/api/config").then((r) => r.json()).then((c) => { agentId = c.agent_id || ""; }).catch(() => { agentId = ""; }).finally(refresh);
 setInterval(refresh, 2000);
+
 </script>
 </body>
 </html>
