@@ -4,14 +4,18 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const source = fs.readFileSync(new URL('../trust/dashboard.html', `file://${__filename}`), 'utf8').split('<script>')[1].split('</script>')[0];
-function harness() {
-  const elements = new Map(), selectors = new Map(), posts = [], alerts = [], timers = [];
+function harness({withArt=false, reducedMotion=true}={}) {
+  const elements = new Map(), selectors = new Map(), posts = [], alerts = [], timers = [], frames = [];
   let lastQueue='', lastAttempts='';
-  function element(dataset={}) { return {dataset, value:'', hidden:false, innerHTML:'', writes:0, textContent:'', classList:{add(){},remove(){},toggle(){}},setAttribute(){},removeAttribute(){},scrollIntoView(){},focus(){}}; }
+  function element(dataset={}) { return {attrs:{},style:{},dataset, value:'', hidden:false, innerHTML:'', writes:0, textContent:'', classList:{add(){},remove(){},toggle(){}},setAttribute(k,v){this.attrs[k]=v;},removeAttribute(k){delete this.attrs[k];},scrollIntoView(){},focus(){}}; }
   const get = s => { if (!elements.has(s)) {const e=element();let html='';Object.defineProperty(e,'innerHTML',{get:()=>html,set:v=>{html=v;e.writes++}});elements.set(s,e);} return elements.get(s); };
   const nav = ['overview','fixes','decisions'].map(view=>element({view})); selectors.set('[data-view]', nav);
   const decisions=['retry','ship','hold'].map(d=>element({d}));selectors.set('#calls button',decisions);
+  const parts = new Map();
+  const part = key => {if(!parts.has(key))parts.set(key,element());return parts.get(key);};
+  const art = {querySelector:s=>s.includes('jaw')?{querySelector:k=>part(s+' '+k)}:part(s),querySelectorAll:()=>[part('wing-left'),part('wing-right')]};
   const document = {querySelector:get, querySelectorAll:s=> {
+    if(s==='.trap-art') return withArt?[art]:[];
     if(s==='[data-fix-index]' && get('#fixes').innerHTML !== lastQueue) {lastQueue=get('#fixes').innerHTML;selectors.set(s,[...lastQueue.matchAll(/data-fix-index="(\d+)"/g)].map(m=>element({fixIndex:m[1]})));}
     if(s==='[data-attempt]' && get('#evidence').innerHTML !== lastAttempts) {lastAttempts=get('#evidence').innerHTML;selectors.set(s,[...lastAttempts.matchAll(/data-attempt="(\d+)"/g)].map(m=>element({attempt:m[1]})));}
     return selectors.get(s)||[];
@@ -20,9 +24,9 @@ function harness() {
   const context=vm.createContext({document,fetch:async(url,options)=>{
     if(options) {if(networkError) throw Error('offline');posts.push(JSON.parse(options.body));return {ok:postOK,json:async()=>({detail:'No escalation is waiting'})};}
     return {ok,json:async()=>url==='/api/config'?{}:{ledger:'test',rows}};
-  },setInterval(){},setTimeout:fn=>{timers.push(fn);return timers.length;},alert:m=>alerts.push(m),window:{matchMedia:()=>({matches:true}),location:{hash:"#workspace"},addEventListener(){},scrollTo(){}},Date,Map});
+  },performance:{now:()=>0},requestAnimationFrame:fn=>{frames.push(fn);return frames.length;},cancelAnimationFrame(){},setInterval(){},setTimeout:fn=>{timers.push(fn);return timers.length;},alert:m=>alerts.push(m),window:{matchMedia:()=>({matches:reducedMotion}),location:{hash:"#workspace"},addEventListener(){},scrollTo(){}},Date,Map});
   vm.runInContext(source,context);
-  return {get,nav,decisions,posts,alerts,context,timers,buttons:s=>document.querySelectorAll(s),setPostOK:v=>postOK=v,setNetworkError:v=>networkError=v,setRows:r=>rows=r,setOK:v=>ok=v,run:s=>vm.runInContext(s,context),refresh:()=>vm.runInContext('refresh()',context)};
+  return {get,nav,decisions,posts,alerts,context,timers,frames,parts,buttons:s=>document.querySelectorAll(s),setPostOK:v=>postOK=v,setNetworkError:v=>networkError=v,setRows:r=>rows=r,setOK:v=>ok=v,run:s=>vm.runInContext(s,context),refresh:()=>vm.runInContext('refresh()',context)};
 }
 const row = (id='users', changes={})=>({fix_id:id,file:`app/${id}.py`,rule_id:'sql.injection',vuln_class:'SQL injection',attempt:1,verdict:'proven',exploit_pre:true,exploit_post:false,semgrep_clear:true,suite_pass:true,scope_clean:true,evidence:'{"function":"search","diff":"<script>bad</script>"}',...changes});
 test('selection, attempt history, escaped evidence, and stable polling',async()=>{
@@ -73,7 +77,22 @@ test('flytrap catches each new fix once, queues arrivals, and ignores initial hi
   h.setRows([row('existing'),row('new',{verdict:'failed'}),row('another',{verdict:'failed'})]);await h.refresh();
   assert.equal(h.timers.length,1);assert.match(h.get('#capture-live').textContent,/new.py/);assert.equal(h.run('captureQueue.length'),1);
   await h.refresh();assert.equal(h.timers.length,1,'polling does not replay the catch');
-  h.timers.shift()();assert.match(h.get('#capture-live').textContent,/another.py/);h.timers.shift()();assert.equal(h.run('captureActive'),false);
+  h.timers.shift()();assert.match(h.get('#capture-live').textContent,/another.py/);h.timers.shift()();assert.equal(h.run('captureActive'),false);assert.equal(h.run('trapAperture'),.14,'the trap stays closed after catching');
   h.setRows([row('existing'),row('new',{verdict:'failed'}),row('new',{attempt:2,verdict:'proven'}),row('another',{verdict:'failed'})]);await h.refresh();assert.equal(h.timers.length,0,'a retry is not a new finding');
   const announcement=h.get('#capture-live').textContent;h.get('#trap-demo').onclick();assert.equal(h.posts.length,0);assert.equal(h.get('#capture-live').textContent,announcement,'demo never claims a real detection');h.timers.shift()();
+});
+
+test('articulated leaves retain volume, teeth remain visible, and the insect disappears after capture',()=>{
+  const h=harness({withArt:true,reducedMotion:false});h.get('#trap-demo').onclick();
+  h.frames.shift()(650);assert(Number(h.parts.get('.trap-bug').style.opacity)>0,'insect approaches before the snap');
+  h.frames.shift()(1005);
+  for(const jaw of ['.upper-jaw','.lower-jaw']) {
+    const movingTeeth=[...h.parts.get(jaw+' .leaf-teeth').attrs.d.matchAll(/M([\d.-]+) ([\d.-]+)L([\d.-]+) ([\d.-]+)/g)];
+    for(const [,x,y,tx,ty] of movingTeeth) assert(Math.hypot(Number(tx)-Number(x),Number(ty)-Number(y))>=20,'teeth retain their length during the snap');
+  }
+  h.frames.shift()(1400);assert.equal(h.parts.get('.trap-bug').style.opacity,'0');assert.equal(h.parts.get('.upper-jaw .leaf-inner').style.opacity,'0');
+  const outer=h.parts.get('.upper-jaw .leaf-outer').attrs.d;assert(!outer.includes('NaN'));assert.match(outer,/M84 173/);
+  const lines=[...h.parts.get('.upper-jaw .leaf-teeth').attrs.d.matchAll(/M([\d.-]+) ([\d.-]+)L([\d.-]+) ([\d.-]+)/g)];
+  assert.equal(lines.length,11);for(const [,x,y,tx,ty] of lines) assert(Math.hypot(Number(tx)-Number(x),Number(ty)-Number(y))>10,'teeth are not flattened with the leaves');
+  h.timers.shift()();assert.equal(h.run('trapAperture'),.14);
 });

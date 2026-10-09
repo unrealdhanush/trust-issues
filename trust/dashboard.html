@@ -62,17 +62,12 @@ a { color:inherit; } .home-link { display:block; color:var(--muted); text-decora
 @media(prefers-reduced-motion:reduce) { .bio-glow,.bio-particle { animation:none; } .enter { transition:none; } }
 
 .trap-feature { position:relative; text-align:center; } .trap-scene { position:relative; } .trap-feature .trap-scene::before { content:""; position:absolute; inset:15% 5%; border-radius:50%; background:radial-gradient(circle,#65ff8e1a,transparent 66%); z-index:-1; }
-.trap-art { display:block; width:100%; max-width:450px; margin:auto; overflow:visible; filter:drop-shadow(0 14px 24px #0007); } .upper-jaw,.lower-jaw { transform-origin:200px 173px; }
+.trap-art { display:block; width:100%; max-width:450px; margin:auto; overflow:visible; filter:drop-shadow(0 14px 24px #0007); }
 .trap-bug { opacity:0; } .trap-caption { margin-top:-18px; position:relative; } .trap-caption .eyebrow { color:var(--accent); } .trap-caption strong { display:block; font-size:22px; font-weight:550; letter-spacing:-.6px; margin:7px 0; } .trap-caption p { color:var(--muted); font-size:11px; margin:0 0 14px; } .trap-demo { color:var(--ink); background:#192b20; border:1px solid #385d44; border-radius:999px; padding:9px 16px; font-size:11px; } .trap-demo:hover { background:#254132; } .demo-note { display:block; margin-top:8px; color:var(--muted); font-size:9px; }
 .trap-companion { border-top:1px solid var(--line); padding:12px 18px 20px; text-align:center; } .trap-companion .trap-art { width:170px; } .trap-companion strong { font-size:12px; font-weight:550; } .trap-companion p { color:var(--accent); font-size:10px; margin:6px 0; overflow-wrap:anywhere; } .trap-note { display:block; color:var(--muted); font-size:9px; }
-.capture .upper-jaw { animation:trap-top 3.2s cubic-bezier(.2,.8,.2,1) both; } .capture .lower-jaw { animation:trap-bottom 3.2s cubic-bezier(.2,.8,.2,1) both; } .capture .trap-bug { animation:bug-flight 3.2s ease-in-out both; } .capture .capture-ring { animation:catch-pulse 3.2s ease-out both; transform-origin:200px 173px; }
-@keyframes trap-top { 0%,32%,100% { transform:scaleY(1); } 44%,76% { transform:scaleY(.08); } }
-@keyframes trap-bottom { 0%,32%,100% { transform:scaleY(1); } 44%,76% { transform:scaleY(.08); } }
-@keyframes bug-flight { 0% { transform:translate(120px,-100px) rotate(-15deg); opacity:0; } 8% { opacity:1; } 24% { transform:translate(-24px,-40px) rotate(12deg); } 38% { transform:translate(0,0); opacity:1; } 45%,100% { transform:translate(0,0) scale(.3); opacity:0; } }
-@keyframes catch-pulse { 0%,40%,100% { opacity:0; transform:scale(.9); } 45% { opacity:.45; } 75% { opacity:0; transform:scale(1.3); } }
 .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 @media(max-width:760px) { .trap-companion .trap-art { width:115px; } .trap-companion { padding-top:4px; } }
-@media(prefers-reduced-motion:reduce) { .capture .upper-jaw,.capture .lower-jaw,.capture .trap-bug,.capture .capture-ring { animation:none; } .capture .upper-jaw,.capture .lower-jaw { transform:scaleY(.08); } }
+
 </style>
 </head>
 <body>
@@ -89,16 +84,9 @@ a { color:inherit; } .home-link { display:block; color:var(--muted); text-decora
  <path d="M190 356C171 317 136 309 127 252M208 349C241 305 276 279 278 239" stroke="#2b9d4c" stroke-width="7" stroke-linecap="round"/>
  <path d="M126 259C86 249 74 226 72 204C114 203 142 221 126 259Z" fill="url(#leaf-landing)"/><path d="M278 248C274 215 297 193 324 188C330 221 310 242 278 248Z" fill="url(#leaf-landing)"/>
  <path d="m76 209 47 44m201-56-43 44" stroke="#a8ff77" stroke-opacity=".5"/>
- <g class="upper-jaw"><path d="M84 171C79 106 122 57 200 55C278 57 321 106 316 171C266 157 134 157 84 171Z" fill="url(#leaf-landing)" stroke="#83f28b" stroke-width="2"/><path d="M99 162C100 108 137 76 200 74C263 76 300 108 301 162C252 149 148 149 99 162Z" fill="url(#mouth-landing)"/>
- <path d="m87 151-22-10m24-14-20-17m28-7-17-22m34 2-10-26m34 10-3-29m33 24 6-28m25 27 17-25m12 33 24-19m4 33 28-10m-1 36 29-1" stroke="#9dff88" stroke-width="3" stroke-linecap="round"/>
- <path d="M122 145 144 123m9 20 10-33m17 33 1-40m21 40-1-40m24 40-9-33m31 33-19-23" stroke="#a24e72" stroke-width="1" opacity=".5"/>
- </g>
- <g class="lower-jaw"><path d="M84 175C84 236 130 281 200 282C270 281 316 236 316 175C262 188 138 188 84 175Z" fill="url(#leaf-landing)" stroke="#83f28b" stroke-width="2"/><path d="M100 187C104 234 142 262 200 264C258 262 296 234 300 187C249 200 151 200 100 187Z" fill="url(#mouth-landing)"/>
- <path d="m88 195-24 9m28 12-23 18m35 0-18 24m35-8-10 27m35-15-3 29m30-23 7 29m23-28 18 23m10-33 26 16m-2-34 29 5m-10-36 29-3" stroke="#9dff88" stroke-width="3" stroke-linecap="round"/>
- <path d="m122 205 25 17m9-16 10 27m18-25 1 35m21-35-2 35m22-38-9 28m33-29-21 21" stroke="#a24e72" stroke-width="1" opacity=".5"/>
- </g>
- <g class="trap-bug"><g transform="translate(200 172)"><ellipse cx="-6" cy="-5" rx="8" ry="5" transform="rotate(-25 -6 -5)" fill="#dae9e2" opacity=".8"/><ellipse cx="6" cy="-5" rx="8" ry="5" transform="rotate(25 6 -5)" fill="#dae9e2" opacity=".8"/><path d="m-5 0-9-2m9 6-9 3m9-12-7-5m17 8 9-2m-9 8 9 3m-9-12 7-5" stroke="#cfe0d8" stroke-width="1.5"/><ellipse cy="3" rx="5" ry="8" fill="#d1aa58"/><circle cy="-6" r="4" fill="#f0d48f"/></g></g>
- <circle class="capture-ring" cx="200" cy="173" r="88" stroke="#65ff8e" opacity="0"/>
+ <g class="upper-jaw"><path class="leaf-outer" fill="url(#leaf-landing)" stroke="#83f28b" stroke-width="2"/><path class="leaf-inner" fill="url(#mouth-landing)"/><path class="leaf-veins" stroke="#a24e72" stroke-width="1" opacity=".45"/><path class="leaf-teeth" stroke="#9dff88" stroke-width="2.5" stroke-linecap="round"/></g>
+ <g class="lower-jaw"><path class="leaf-outer" fill="url(#leaf-landing)" stroke="#83f28b" stroke-width="2"/><path class="leaf-inner" fill="url(#mouth-landing)"/><path class="leaf-veins" stroke="#a24e72" stroke-width="1" opacity=".45"/><path class="leaf-teeth" stroke="#9dff88" stroke-width="2.5" stroke-linecap="round"/></g>
+ <g class="trap-bug"><g transform="translate(200 172)"><ellipse class="bug-wing left" cx="-6" cy="-5" rx="8" ry="5" transform="rotate(-25 -6 -5)" fill="#dae9e2" opacity=".8"/><ellipse class="bug-wing right" cx="6" cy="-5" rx="8" ry="5" transform="rotate(25 6 -5)" fill="#dae9e2" opacity=".8"/><path d="m-5 0-9-2m9 6-9 3m9-12-7-5m17 8 9-2m-9 8 9 3m-9-12 7-5" stroke="#cfe0d8" stroke-width="1.5"/><ellipse cy="3" rx="5" ry="8" fill="#d1aa58"/><circle cy="-6" r="4" fill="#f0d48f"/></g></g>
 </svg></div><div class="trap-caption"><span class="eyebrow">Meet your bug catcher</span><strong>Small bugs. Big appetite.</strong><p>New findings trigger a catch.<br>Proof still decides what ships.</p><button class="trap-demo" id="trap-demo" type="button">Preview a catch <span aria-hidden="true">↗</span></button><span class="demo-note">Illustrative animation · no scan or code changes</span></div></div></div>
   <section class="chapters" id="chapters" aria-label="How Trust Issues works"><div class="chapter-heading"><span>Table of contents</span><span>Three chapters. One security loop.</span></div><div class="chapter-grid"><article class="chapter"><span class="chapter-number">01 / THE FINDING</span><h2>Start with the exploit.</h2><p>Establish the vulnerability, then make a focused repair. Every fix gets its own place in the ledger.</p></article><article class="chapter"><span class="chapter-number">02 / THE EVIDENCE</span><h2>Make the proof visible.</h2><p>Six checks examine exploit prevention, the security scan, regression tests, test integrity, and patch scope.</p></article><article class="chapter"><span class="chapter-number">03 / THE JUDGMENT</span><h2>Keep a human in reach.</h2><p>When proof fails, inspect the evidence and decide: retry with a hint, hold the patch, or explicitly ship without proof.</p></article></div></section>
   <footer class="story-foot"><span>Trust Issues / A record of what holds.</span><a href="#workspace">Read the evidence in the workspace →</a></footer>
@@ -132,16 +120,9 @@ a { color:inherit; } .home-link { display:block; color:var(--muted); text-decora
  <path d="M190 356C171 317 136 309 127 252M208 349C241 305 276 279 278 239" stroke="#2b9d4c" stroke-width="7" stroke-linecap="round"/>
  <path d="M126 259C86 249 74 226 72 204C114 203 142 221 126 259Z" fill="url(#leaf-workspace)"/><path d="M278 248C274 215 297 193 324 188C330 221 310 242 278 248Z" fill="url(#leaf-workspace)"/>
  <path d="m76 209 47 44m201-56-43 44" stroke="#a8ff77" stroke-opacity=".5"/>
- <g class="upper-jaw"><path d="M84 171C79 106 122 57 200 55C278 57 321 106 316 171C266 157 134 157 84 171Z" fill="url(#leaf-workspace)" stroke="#83f28b" stroke-width="2"/><path d="M99 162C100 108 137 76 200 74C263 76 300 108 301 162C252 149 148 149 99 162Z" fill="url(#mouth-workspace)"/>
- <path d="m87 151-22-10m24-14-20-17m28-7-17-22m34 2-10-26m34 10-3-29m33 24 6-28m25 27 17-25m12 33 24-19m4 33 28-10m-1 36 29-1" stroke="#9dff88" stroke-width="3" stroke-linecap="round"/>
- <path d="M122 145 144 123m9 20 10-33m17 33 1-40m21 40-1-40m24 40-9-33m31 33-19-23" stroke="#a24e72" stroke-width="1" opacity=".5"/>
- </g>
- <g class="lower-jaw"><path d="M84 175C84 236 130 281 200 282C270 281 316 236 316 175C262 188 138 188 84 175Z" fill="url(#leaf-workspace)" stroke="#83f28b" stroke-width="2"/><path d="M100 187C104 234 142 262 200 264C258 262 296 234 300 187C249 200 151 200 100 187Z" fill="url(#mouth-workspace)"/>
- <path d="m88 195-24 9m28 12-23 18m35 0-18 24m35-8-10 27m35-15-3 29m30-23 7 29m23-28 18 23m10-33 26 16m-2-34 29 5m-10-36 29-3" stroke="#9dff88" stroke-width="3" stroke-linecap="round"/>
- <path d="m122 205 25 17m9-16 10 27m18-25 1 35m21-35-2 35m22-38-9 28m33-29-21 21" stroke="#a24e72" stroke-width="1" opacity=".5"/>
- </g>
- <g class="trap-bug"><g transform="translate(200 172)"><ellipse cx="-6" cy="-5" rx="8" ry="5" transform="rotate(-25 -6 -5)" fill="#dae9e2" opacity=".8"/><ellipse cx="6" cy="-5" rx="8" ry="5" transform="rotate(25 6 -5)" fill="#dae9e2" opacity=".8"/><path d="m-5 0-9-2m9 6-9 3m9-12-7-5m17 8 9-2m-9 8 9 3m-9-12 7-5" stroke="#cfe0d8" stroke-width="1.5"/><ellipse cy="3" rx="5" ry="8" fill="#d1aa58"/><circle cy="-6" r="4" fill="#f0d48f"/></g></g>
- <circle class="capture-ring" cx="200" cy="173" r="88" stroke="#65ff8e" opacity="0"/>
+ <g class="upper-jaw"><path class="leaf-outer" fill="url(#leaf-workspace)" stroke="#83f28b" stroke-width="2"/><path class="leaf-inner" fill="url(#mouth-workspace)"/><path class="leaf-veins" stroke="#a24e72" stroke-width="1" opacity=".45"/><path class="leaf-teeth" stroke="#9dff88" stroke-width="2.5" stroke-linecap="round"/></g>
+ <g class="lower-jaw"><path class="leaf-outer" fill="url(#leaf-workspace)" stroke="#83f28b" stroke-width="2"/><path class="leaf-inner" fill="url(#mouth-workspace)"/><path class="leaf-veins" stroke="#a24e72" stroke-width="1" opacity=".45"/><path class="leaf-teeth" stroke="#9dff88" stroke-width="2.5" stroke-linecap="round"/></g>
+ <g class="trap-bug"><g transform="translate(200 172)"><ellipse class="bug-wing left" cx="-6" cy="-5" rx="8" ry="5" transform="rotate(-25 -6 -5)" fill="#dae9e2" opacity=".8"/><ellipse class="bug-wing right" cx="6" cy="-5" rx="8" ry="5" transform="rotate(25 6 -5)" fill="#dae9e2" opacity=".8"/><path d="m-5 0-9-2m9 6-9 3m9-12-7-5m17 8 9-2m-9 8 9 3m-9-12 7-5" stroke="#cfe0d8" stroke-width="1.5"/><ellipse cy="3" rx="5" ry="8" fill="#d1aa58"/><circle cy="-6" r="4" fill="#f0d48f"/></g></g>
 </svg></div><strong>Threat catcher</strong><p id="trap-status">Listening for new findings.</p><span class="trap-note">Detection is the catch. Verification is the proof.</span></div></section>
     <section class="inspector" aria-label="Evidence inspector"><div id="evidence"></div><section id="call-section" hidden><h3>Human decision required</h3><div id="calls"></div></section></section>
   </div>
@@ -308,6 +289,70 @@ for (const b of document.querySelectorAll("[data-view]")) b.onclick = () => {
   renderWorkspace();
 };
 
+// The trap's surfaces fold toward a hinge; its teeth keep their length and interlock.
+const trapRigs = [...document.querySelectorAll(".trap-art")].map((svg) => ({
+  upper: svg.querySelector(".upper-jaw"), lower: svg.querySelector(".lower-jaw"),
+  bug: svg.querySelector(".trap-bug"), wings: svg.querySelectorAll(".bug-wing")
+}));
+let trapAperture = 1;
+let captureFrame = null;
+function leafPose(jaw, aperture, upper) {
+  const sign = upper ? -1 : 1;
+  const fullHeight = upper ? 118 : 109;
+  const height = 24 + (fullHeight - 24) * aperture;
+  const rimHeight = fullHeight * aperture;
+  const hy = 173, cy = hy + sign * height, control = hy + sign * height * .5523;
+  jaw.querySelector(".leaf-outer").setAttribute("d", `M84 ${hy}C84 ${control} 136 ${cy} 200 ${cy}C264 ${cy} 316 ${control} 316 ${hy}Q200 ${hy + sign * 4} 84 ${hy}Z`);
+  const inner = Math.max(0, height - 15);
+  jaw.querySelector(".leaf-inner").setAttribute("d", `M100 ${hy}C100 ${hy + sign * inner * .5523} 145 ${hy + sign * inner} 200 ${hy + sign * inner}C255 ${hy + sign * inner} 300 ${hy + sign * inner * .5523} 300 ${hy}Q200 ${hy + sign * 3} 100 ${hy}Z`);
+  jaw.querySelector(".leaf-inner").style.opacity = String(Math.max(0, Math.min(1, (aperture-.25)/.25)));
+  let teeth = "", veins = "";
+  for (let i = 1; i < 12; i++) {
+    const angle = Math.PI * (i + (upper ? 0 : .45)) / 12;
+    const x = 200 - 116 * Math.cos(angle), y = hy + sign * rimHeight * Math.sin(angle);
+    const length = 20 + 3 * Math.sin(angle);
+    const closure = Math.min(1, (1 - aperture) / .86);
+    const outward = Math.atan2(sign * Math.sin(angle), -Math.cos(angle) * .6);
+    const inward = Math.atan2(-sign * Math.sin(angle), -Math.cos(angle) * .6);
+    const turn = Math.atan2(Math.sin(inward-outward), Math.cos(inward-outward));
+    const toothAngle = outward + turn * closure;
+    const tipX = x + Math.cos(toothAngle) * length;
+    const tipY = y + Math.sin(toothAngle) * length;
+    teeth += `M${x} ${y}L${tipX} ${tipY}`;
+  }
+  for (const x of [145,175,200,225,255]) veins += `M${x} ${hy + sign * 8}Q${x} ${hy + sign * height * .4} ${200 + (x-200)*.7} ${hy + sign * height * .76}`;
+  jaw.querySelector(".leaf-teeth").setAttribute("d", teeth);
+  jaw.querySelector(".leaf-veins").setAttribute("d", veins);
+}
+function poseTrap(aperture, insect = null) {
+  trapAperture = aperture;
+  for (const rig of trapRigs) {
+    leafPose(rig.upper, aperture, true); leafPose(rig.lower, aperture, false);
+    rig.bug.style.opacity = insect ? String(insect.opacity) : "0";
+    if (insect) {
+      rig.bug.setAttribute("transform", `translate(${insect.x-200} ${insect.y-172})`);
+      rig.wings.forEach((wing, i) => wing.setAttribute("transform", `rotate(${(i ? 1 : -1) * insect.wing} ${i ? 6 : -6} -5)`));
+    }
+  }
+}
+function easeOut(t) { return 1 - Math.pow(1 - Math.max(0, Math.min(1,t)), 3); }
+function capturePose(ms, initialAperture) {
+  let aperture;
+  if (ms < 320) aperture = initialAperture + (1 - initialAperture) * easeOut(ms/320);
+  else if (ms < 980) aperture = 1;
+  else if (ms < 1110) aperture = 1 - .86 * easeOut((ms-980)/130);
+  else if (ms < 1330) aperture = .14 + .025 * Math.sin((ms-1110)/35) * Math.exp(-(ms-1110)/65);
+  else aperture = .14;
+  let insect = null;
+  if (ms >= 320 && ms < 1070) {
+    const t = Math.min(1, (ms-320)/620), v = 1-t;
+    insect = { x:v*v*305 + 2*v*t*225 + t*t*200, y:v*v*105 + 2*v*t*115 + t*t*172,
+      opacity: Math.min(1,(ms-320)/90) * (ms > 1000 ? Math.max(0,1-(ms-1000)/70) : 1),
+      wing:t < 1 ? Math.sin(ms*.09)*18 : 0 };
+  }
+  poseTrap(aperture, insect);
+}
+poseTrap(1);
 // A capture acknowledges a new finding; it never changes a security verdict.
 const observedFindings = new Set();
 let findingsHydrated = false;
@@ -317,24 +362,31 @@ function playCapture(finding, demo = false) {
   if (captureActive) return;
   captureActive = true;
   $("#trap-demo").disabled = true;
-  // Flush the previous pose so queued catches each start a fresh CSS animation.
-  void $("#landing-trap").offsetWidth;
-  void $("#workspace-trap").offsetWidth;
-  $("#landing-trap").classList.add("capture");
-  $("#workspace-trap").classList.add("capture");
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const initialAperture = trapAperture;
+  if (reducedMotion) poseTrap(.14);
+  else {
+    const start = performance.now();
+    const frame = (now) => {
+      capturePose(now-start, initialAperture);
+      if (captureActive && now-start < 1800) captureFrame = requestAnimationFrame(frame);
+    };
+    captureFrame = requestAnimationFrame(frame);
+  }
   if (!demo) {
     $("#trap-status").textContent = `Catching a finding in ${finding.file}.`;
     $("#capture-live").textContent = `New vulnerability detected in ${finding.file}. Inspect its evidence in the fix queue.`;
   }
   setTimeout(() => {
-    $("#landing-trap").classList.remove("capture");
-    $("#workspace-trap").classList.remove("capture");
+    if (captureFrame !== null) cancelAnimationFrame(captureFrame);
+    captureFrame = null;
+    poseTrap(.14);
     $("#trap-demo").disabled = false;
     captureActive = false;
     const count = group(ledgerRows).length;
     $("#trap-status").textContent = `${count} tracked ${count === 1 ? "finding" : "findings"} · proof still required.`;
     nextCapture();
-  }, window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 600 : 3300);
+  }, reducedMotion ? 600 : 1800);
 }
 function nextCapture() {
   if (!captureActive && captureQueue.length) playCapture(captureQueue.shift());
