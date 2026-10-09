@@ -9,7 +9,8 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 from .config import OPENAI_MODEL, ROOT, env
-from .guard import is_protected, tree
+from .context import relevant_files
+from .guard import is_protected
 from .models import FileEdit, Finding, Patch, Proof
 from .prove import EXPLOIT_FILE
 
@@ -51,9 +52,9 @@ class ExploitOut(BaseModel):
 
 
 def repo_context(target, finding: Finding):
-    files = tree(target)
-    app = {p: c for p, c in files.items() if p.endswith(".py") and not is_protected(p)}
-    tests = {p: c for p, c in files.items() if is_protected(p) and p.endswith(".py")}
+    files = relevant_files(target, finding)
+    app = {p: c for p, c in files.items() if not is_protected(p)}
+    tests = {p: c for p, c in files.items() if is_protected(p)}
 
     def block(d):
         return "\n\n".join(f"### {p}\n```python\n{c}\n```" for p, c in sorted(d.items()))
@@ -97,8 +98,10 @@ class OpenAIAgent:
     def exploit(self, target, finding: Finding, feedback=""):
         instructions = (
             "You are a security engineer writing a regression test that proves a SQL injection "
-            "is real. Write a pytest module that uses the existing `client` fixture (a Flask test "
-            "client, see tests/conftest.py). Each test asserts the SAFE behavior, so it must FAIL "
+            "is real. Write a pytest module that reaches the vulnerable code the same way the "
+            "existing tests do: reuse the fixtures from the conftest.py files shown (a web test "
+            "client, a database session) or call the function directly. Don't start servers or "
+            "invent fixtures. Each test asserts the SAFE behavior, so it must FAIL "
             "with an AssertionError on the vulnerable code and PASS once the bug is fixed. Prefer "
             "an observable leak (extra rows, data from another table, or a response that changes "
             "with an injected condition) over checking error codes. Accept either a 400 or a "

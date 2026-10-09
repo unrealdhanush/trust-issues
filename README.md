@@ -85,6 +85,40 @@ for the same CLI, or `uv run trust`.
 With `ELEVENLABS_AGENT_ID` set, the dashboard also shows the ElevenLabs web widget on a pending
 escalation, which is the no-phone fallback.
 
+## Using it on your own repo
+
+```
+uv pip install -r /path/to/repo/requirements.txt      # or give the repo its own .venv: it's used automatically
+trust-issues run   --target /path/to/repo --open-pr   # one pass: scan, prove, open a PR per proven fix
+trust-issues watch --target /path/to/repo --every 15m --open-pr          # keep watching
+trust-issues watch --target /path/to/repo --once --changed-only --pull   # one pass for cron/CI, new commits only
+```
+
+**How it finds bugs.** Each pass runs Semgrep (through its MCP server) over the repo's non-test
+Python files, and groups findings per vulnerable function.
+
+**How it monitors.** `watch` re-scans on the interval you give it. A finding is handled once a fix
+reaches an outcome (proven, shipped, held). It's looked at again only when that function's
+code changes: a proven fix waiting in review isn't re-proven every cycle, but a regression is.
+`--changed-only` limits each pass to files changed in new commits. State lives in
+`runs/watch-state.json`. For a schedule without a long-running process, run `watch --once` from
+cron, or use `examples/github-action.yml` (daily, opens PRs with `GITHUB_TOKEN`).
+
+**What it sends to the model.** The vulnerable file, the repo files it imports, the conftest files
+and the tests that mention it, up to a budget. Not the whole repo.
+
+**Where tests run.** In the target's own `.venv` or `venv` if it has one, or `TRUST_TARGET_PYTHON`,
+otherwise in this environment. Each attempt runs on a copy without `.git`, virtualenvs or
+`node_modules`.
+
+**Pull requests.** `--open-pr` commits each proven fix (or one on-call chose to ship, marked
+unproven) on a `trust-issues/<fix_id>` branch in a temporary git worktree, so your checkout is
+never touched. It pushes the branch to `origin` and, with `GITHUB_TOKEN` set and a GitHub remote,
+opens the PR with the proof as its body. Without a token it prints the compare link.
+
+Still Python, pytest and SQL injection only. The harness checks are class-agnostic; new
+vulnerability classes need their own detection filter and exploit prompt.
+
 ## Layout
 
 ```
@@ -98,6 +132,9 @@ trust/loop.py       orchestrator + CLI: retries, escalation, ship/hold/retry (al
 trust/ledger.py     ClickHouse ledger with a local JSONL fallback (C)
 trust/server.py     webhook tools for the voice agent, dashboard API (C)
 trust/voice.py      ElevenLabs outbound call and transcript (C)
+trust/watch.py      monitoring: scheduled scans, skip what's handled, re-check changed code
+trust/publish.py    pull requests from a temporary git worktree
+trust/context.py    what the model sees: the vulnerable file, its imports, its tests
 trust/dashboard.html  live ledger view and decision fallback (C)
 scripts/setup_elevenlabs.py  one-time agent, tools and phone number setup (C)
 fixtures/scripted/  deterministic agent output for rehearsal
