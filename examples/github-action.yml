@@ -1,0 +1,62 @@
+# Trust Issues in CI: copy to .github/workflows/trust-issues.yml in the repo you want watched.
+#
+# Every night (and on demand) it scans the repo, proves fixes, and opens a pull request for
+# each proven one. A fix it can't prove escalates to on-call exactly as it does locally, so:
+#   - the ledger must be ClickHouse (CLICKHOUSE_URL), shared with your `trust-issues serve`
+#   - `trust-issues serve` must run somewhere reachable (it receives the voice agent's decision)
+# Without ElevenLabs settings an unproven fix waits TRUST_DECISION_TIMEOUT seconds for a
+# dashboard decision, then is held with a ticket.
+
+name: trust-issues
+on:
+  schedule:
+    - cron: "0 7 * * *"        # daily, 07:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write               # push trust-issues/<fix_id> branches
+  pull-requests: write          # open the PRs
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Install the repo's own dependencies (tests run with them)
+        run: |
+          uv venv .venv
+          uv pip install --python .venv/bin/python -r requirements.txt pytest
+      - name: Install Trust Issues and Semgrep
+        run: |
+          uv tool install semgrep
+          uv tool install "git+https://github.com/unrealdhanush/trust-issues"
+      - name: Remember what was already handled
+        uses: actions/cache@v4
+        with:
+          path: runs/watch-state.json
+          key: trust-issues-state-${{ github.run_id }}
+          restore-keys: trust-issues-state-
+      - name: Scan, prove, open PRs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CLICKHOUSE_URL: ${{ secrets.CLICKHOUSE_URL }}
+          CLICKHOUSE_PASSWORD: ${{ secrets.CLICKHOUSE_PASSWORD }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          ELEVENLABS_AGENT_ID: ${{ secrets.ELEVENLABS_AGENT_ID }}
+          ELEVENLABS_PHONE_NUMBER_ID: ${{ secrets.ELEVENLABS_PHONE_NUMBER_ID }}
+          ONCALL_PHONE_NUMBER: ${{ secrets.ONCALL_PHONE_NUMBER }}
+          TRUST_RUNS_DIR: runs
+          TRUST_DECISION_TIMEOUT: "900"
+        run: |
+          git config user.name "trust-issues[bot]"
+          git config user.email "trust-issues@users.noreply.github.com"
+          trust-issues watch --target . --once --open-pr
+      - name: Keep the evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trust-issues-evidence
+          path: runs/*/PR.md

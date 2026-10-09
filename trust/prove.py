@@ -24,7 +24,24 @@ from .config import ROOT
 from .models import Finding, Patch, Proof
 
 EXPLOIT_FILE = "tests/test_trust_exploit.py"
-COPY_IGNORE = shutil.ignore_patterns("__pycache__", ".pytest_cache", "*.pyc", "*.sqlite", ".venv")
+COPY_IGNORE = shutil.ignore_patterns(
+    ".git", "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".tox", "*.pyc",
+    "*.sqlite", ".venv", "venv", "node_modules", "dist", "build", "runs",
+)
+
+
+def target_python(target):
+    """The interpreter that runs the target's tests: TRUST_TARGET_PYTHON, the repo's own
+    .venv / venv, or this one."""
+    from .config import env
+
+    if env("TRUST_TARGET_PYTHON"):
+        return env("TRUST_TARGET_PYTHON")
+    for d in (".venv", "venv"):
+        exe = Path(target) / d / "bin" / "python"
+        if exe.exists():
+            return str(exe)
+    return sys.executable
 
 
 def copy_tree(src, dst):
@@ -44,7 +61,7 @@ def apply_patch(workspace, patch: Patch):
         dest.write_text(edit.content)
 
 
-def run_pytest(workspace, args, timeout=120):
+def run_pytest(workspace, args, timeout=120, python=None):
     """Run pytest in a workspace with the probe plugin. Returns the probe's record."""
     with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
         out = f.name
@@ -54,7 +71,7 @@ def run_pytest(workspace, args, timeout=120):
         "PYTHONPATH": os.pathsep.join([str(ROOT), str(workspace)]),
         "PYTHONDONTWRITEBYTECODE": "1",
     }
-    cmd = [sys.executable, "-m", "pytest", "-q", "-p", "trust.pytest_probe",
+    cmd = [python or sys.executable, "-m", "pytest", "-q", "-p", "trust.pytest_probe",
            "-p", "no:cacheprovider", *args]
     try:
         proc = subprocess.run(cmd, cwd=workspace, env=env, capture_output=True, text=True,
@@ -69,10 +86,11 @@ def run_pytest(workspace, args, timeout=120):
     return record
 
 
-def exploit_outcome(workspace, exploit_src):
+def exploit_outcome(workspace, exploit_src, python=None):
     """'landed', 'blocked' or 'invalid' for one exploit test module."""
+    (Path(workspace) / EXPLOIT_FILE).parent.mkdir(parents=True, exist_ok=True)
     (Path(workspace) / EXPLOIT_FILE).write_text(exploit_src)
-    rec = run_pytest(workspace, [EXPLOIT_FILE])
+    rec = run_pytest(workspace, [EXPLOIT_FILE], python=python)
     results = [r for r in rec["results"] if r["nodeid"].startswith(EXPLOIT_FILE) or r["when"] == "collect"]
     calls = [r for r in results if r["when"] == "call"]
     broken = [r for r in results if r["outcome"] == "failed" and r["exc"] != "AssertionError"]
@@ -86,9 +104,9 @@ def exploit_outcome(workspace, exploit_src):
     return "invalid", rec
 
 
-def run_suite(workspace):
+def run_suite(workspace, python=None):
     """(tests ran, failing node ids, probe record)."""
-    rec = run_pytest(workspace, ["--ignore", EXPLOIT_FILE])
+    rec = run_pytest(workspace, ["--ignore", EXPLOIT_FILE], python=python)
     failing = sorted({r["nodeid"] for r in rec["results"] if r["outcome"] == "failed"})
     ran = any(r["when"] == "call" for r in rec["results"])
     return ran, failing, rec
@@ -176,6 +194,7 @@ class Harness:
         self.finding = finding
         self.workdir = Path(workdir)
         self.original = copy_tree(self.target, self.workdir / "original")
+        self.python = target_python(self.target)
         self._baseline = None
         self._exploit_cache = {}
         self._scan_cache = {}
@@ -183,14 +202,14 @@ class Harness:
     def baseline(self):
         """The suite must be green before we judge anything against it."""
         if self._baseline is None:
-            ran, failing, _ = run_suite(self.original)
+            ran, failing, _ = run_suite(self.original, self.python)
             self._baseline = (ran, failing)
         return self._baseline
 
     def exploit_on_original(self, exploit_src):
         if exploit_src not in self._exploit_cache:
             scratch = copy_tree(self.original, self.workdir / "exploit-check")
-            self._exploit_cache[exploit_src] = exploit_outcome(scratch, exploit_src)
+            self._exploit_cache[exploit_src] = exploit_outcome(scratch, exploit_src, self.python)
         return self._exploit_cache[exploit_src]
 
     def prove(self, attempt, patch: Patch, exploit_src, allow_test_edits=frozenset()) -> Proof:
@@ -216,7 +235,7 @@ class Harness:
             reasons.append(f"exploit is {pre} on the original code, so it proves nothing")
         details["exploit_original"] = {"outcome": pre, "output": pre_rec["output"][-1500:]}
 
-        ran, all_failing, suite_rec = run_suite(patched)
+        ran, all_failing, suite_rec = run_suite(patched, self.python)
         failing = [t for t in all_failing if t not in base_failing]  # failing before = not ours
         suite_ok = ran and not failing
         details["suite"] = {"pass": suite_ok, "failing": failing,
@@ -227,7 +246,7 @@ class Harness:
         elif failing:
             reasons.append("existing suite failed: " + ", ".join(failing))
 
-        post, post_rec = exploit_outcome(patched, exploit_src)
+        post, post_rec = exploit_outcome(patched, exploit_src, self.python)
         exploit_post = post != "blocked"
         if exploit_post:
             reasons.append(f"exploit is {post} on the patched code")

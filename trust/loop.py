@@ -6,6 +6,7 @@
     trust ledger                      # print the ledger
     trust serve                       # webhook tools + dashboard on :8000
     trust call-test                   # rehearse the escalation call on a canned failed fix
+    trust watch --every 15m           # monitor: re-scan on a schedule, fix only what's new
 """
 
 import argparse
@@ -173,7 +174,19 @@ def escalate(finding: Finding, attempt, proof: Proof, patch: Patch, number, time
     return row
 
 
-def fix(target, finding: Finding, agent, apply=False):
+def deliver(target, finding, patch, out, apply, open_pr, proven):
+    if apply:
+        apply_to_target(target, patch)
+    if open_pr:
+        from .publish import open_pr as publish
+
+        try:
+            publish(target, finding, patch, (out / "PR.md").read_text(), proven=proven)
+        except Exception as exc:
+            say(f"couldn't open the PR ({exc}); the diff is in {out}")
+
+
+def fix(target, finding: Finding, agent, apply=False, open_pr=False):
     ledger = get_ledger()
     say(f"{finding.fix_id}: {finding.rule_short} in {finding.path}:{finding.line} ({finding.function})")
     workdir = RUNS_DIR / finding.fix_id / "work"
@@ -203,8 +216,7 @@ def fix(target, finding: Finding, agent, apply=False):
 
         if proof.proven:
             out = save_artifacts(finding, attempt, proof, patch, "proven")
-            if apply:
-                apply_to_target(target, patch)
+            deliver(target, finding, patch, out, apply, open_pr, proven=True)
             say(f"proven. PR body and diff in {out.relative_to(ROOT) if out.is_relative_to(ROOT) else out}")
             return "proven"
 
@@ -223,8 +235,7 @@ def fix(target, finding: Finding, agent, apply=False):
         decision, hint = row["decision"], row["hint"]
         if decision == "ship":
             out = save_artifacts(finding, attempt, proof, patch, "shipped without proof (on-call decision)")
-            if apply:
-                apply_to_target(target, patch)
+            deliver(target, finding, patch, out, apply, open_pr, proven=False)
             return "shipped"
         if decision == "hold":
             out = save_artifacts(finding, attempt, proof, patch, "held for review (on-call decision)")
@@ -248,8 +259,18 @@ def cmd_run(args):
     if args.fresh:
         for f in findings:
             shutil.rmtree(RUNS_DIR / f.fix_id, ignore_errors=True)
-    results = {f.fix_id: fix(target, f, agent, apply=args.apply) for f in findings}
+    results = {f.fix_id: fix(target, f, agent, apply=args.apply, open_pr=args.open_pr) for f in findings}
     say("done: " + json.dumps(results))
+
+
+def cmd_watch(args):
+    from .watch import watch
+
+    target = Path(args.target).resolve()
+    agent = get_agent()
+    say(f"watching {target} every {args.every}; agent: {agent.name}; ledger: {get_ledger().kind}")
+    watch(target, lambda f: fix(target, f, agent, apply=args.apply, open_pr=args.open_pr),
+          every=args.every, once=args.once, changed_only=args.changed_only, pull=args.pull)
 
 
 def cmd_decide(args):
@@ -295,7 +316,17 @@ def main():
     r.add_argument("--only", help="only fix the finding in this file, e.g. app/admin.py")
     r.add_argument("--apply", action="store_true", help="write proven (or shipped) fixes into the target")
     r.add_argument("--fresh", action="store_true", help="clear previous run artifacts for these fixes")
+    r.add_argument("--open-pr", action="store_true", help="open a pull request for each proven fix")
     r.set_defaults(func=cmd_run)
+    w = sub.add_parser("watch", help="monitor a repo: re-scan on a schedule, fix only what's new")
+    w.add_argument("--target", default=str(ROOT / "target"))
+    w.add_argument("--every", default="15m", help="scan interval, e.g. 30s, 15m, 6h, 1d")
+    w.add_argument("--once", action="store_true", help="one scan, then exit (for cron or CI)")
+    w.add_argument("--changed-only", action="store_true", help="only files changed in new commits")
+    w.add_argument("--pull", action="store_true", help="git pull --ff-only before each scan")
+    w.add_argument("--apply", action="store_true", help="write proven fixes into the target")
+    w.add_argument("--open-pr", action="store_true", help="open a pull request for each proven fix")
+    w.set_defaults(func=cmd_watch)
     d = sub.add_parser("decide")
     d.add_argument("fix_id")
     d.add_argument("decision", choices=["ship", "hold", "retry"])
