@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const source = fs.readFileSync(new URL('../trust/dashboard.html', `file://${__filename}`), 'utf8').split('<script>')[1].split('</script>')[0];
 function harness() {
-  const elements = new Map(), selectors = new Map(), posts = [], alerts = [];
+  const elements = new Map(), selectors = new Map(), posts = [], alerts = [], timers = [];
   let lastQueue='', lastAttempts='';
   function element(dataset={}) { return {dataset, value:'', hidden:false, innerHTML:'', writes:0, textContent:'', classList:{add(){},remove(){},toggle(){}},setAttribute(){},removeAttribute(){},scrollIntoView(){},focus(){}}; }
   const get = s => { if (!elements.has(s)) {const e=element();let html='';Object.defineProperty(e,'innerHTML',{get:()=>html,set:v=>{html=v;e.writes++}});elements.set(s,e);} return elements.get(s); };
@@ -20,9 +20,9 @@ function harness() {
   const context=vm.createContext({document,fetch:async(url,options)=>{
     if(options) {if(networkError) throw Error('offline');posts.push(JSON.parse(options.body));return {ok:postOK,json:async()=>({detail:'No escalation is waiting'})};}
     return {ok,json:async()=>url==='/api/config'?{}:{ledger:'test',rows}};
-  },setInterval(){},alert:m=>alerts.push(m),window:{matchMedia:()=>({matches:true}),location:{hash:"#workspace"},addEventListener(){},scrollTo(){}},Date,Map});
+  },setInterval(){},setTimeout:fn=>{timers.push(fn);return timers.length;},alert:m=>alerts.push(m),window:{matchMedia:()=>({matches:true}),location:{hash:"#workspace"},addEventListener(){},scrollTo(){}},Date,Map});
   vm.runInContext(source,context);
-  return {get,nav,decisions,posts,alerts,context,buttons:s=>document.querySelectorAll(s),setPostOK:v=>postOK=v,setNetworkError:v=>networkError=v,setRows:r=>rows=r,setOK:v=>ok=v,run:s=>vm.runInContext(s,context),refresh:()=>vm.runInContext('refresh()',context)};
+  return {get,nav,decisions,posts,alerts,context,timers,buttons:s=>document.querySelectorAll(s),setPostOK:v=>postOK=v,setNetworkError:v=>networkError=v,setRows:r=>rows=r,setOK:v=>ok=v,run:s=>vm.runInContext(s,context),refresh:()=>vm.runInContext('refresh()',context)};
 }
 const row = (id='users', changes={})=>({fix_id:id,file:`app/${id}.py`,rule_id:'sql.injection',vuln_class:'SQL injection',attempt:1,verdict:'proven',exploit_pre:true,exploit_post:false,semgrep_clear:true,suite_pass:true,scope_clean:true,evidence:'{"function":"search","diff":"<script>bad</script>"}',...changes});
 test('selection, attempt history, escaped evidence, and stable polling',async()=>{
@@ -66,4 +66,14 @@ test('field guide and workspace navigation preserve the selected fix and hint',a
   assert.equal(h.get('#product').hidden,true);assert.equal(h.get('#story').hidden,false);
   h.run('window.location.hash="#workspace";showPage()');assert.equal(h.get('#product').hidden,false);assert.equal(h.get('#story').hidden,true);
   assert.match(h.get('#evidence').innerHTML,/app\/admin.py/);assert.equal(h.get('#hint').value,'keep my draft');
+});
+
+test('flytrap catches each new fix once, queues arrivals, and ignores initial history or retries',async()=>{
+  const h=harness();h.setRows([row('existing')]);await h.refresh();assert.equal(h.timers.length,0);
+  h.setRows([row('existing'),row('new',{verdict:'failed'}),row('another',{verdict:'failed'})]);await h.refresh();
+  assert.equal(h.timers.length,1);assert.match(h.get('#capture-live').textContent,/new.py/);assert.equal(h.run('captureQueue.length'),1);
+  await h.refresh();assert.equal(h.timers.length,1,'polling does not replay the catch');
+  h.timers.shift()();assert.match(h.get('#capture-live').textContent,/another.py/);h.timers.shift()();assert.equal(h.run('captureActive'),false);
+  h.setRows([row('existing'),row('new',{verdict:'failed'}),row('new',{attempt:2,verdict:'proven'}),row('another',{verdict:'failed'})]);await h.refresh();assert.equal(h.timers.length,0,'a retry is not a new finding');
+  const announcement=h.get('#capture-live').textContent;h.get('#trap-demo').onclick();assert.equal(h.posts.length,0);assert.equal(h.get('#capture-live').textContent,announcement,'demo never claims a real detection');h.timers.shift()();
 });
