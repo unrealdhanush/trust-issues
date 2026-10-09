@@ -149,23 +149,26 @@ def escalate(finding: Finding, attempt, proof: Proof, patch: Patch, number, time
     row = proof_row(finding, attempt, proof, patch, verdict="escalated")
     row["evidence"]["brief"] = brief  # the dashboard widget hands the agent the same brief
     ledger.insert(row)
-    conversation_id = None
+    conversation_id, placed = None, None
     started = time.time()
     if voice.configured():
         say(f"escalation {number}: calling on-call about {finding.fix_id}")
         try:
-            conversation_id = voice.call_oncall(brief)
+            placed = voice.call_oncall(brief)
+            conversation_id = placed["conversation_id"]
+            if placed["via"] == "twilio":
+                say("placed the call through Twilio directly" + (f"; {placed['note']}" if placed["note"] else ""))
         except Exception as exc:
             say(f"call failed ({exc!r}); decide from the dashboard instead")
-    if not conversation_id:
+    if not placed:
         say(f"escalation {number}: {brief['failed_check']}")
         say(f"decide on the dashboard, or: trust-issues decide {finding.fix_id} ship|hold|retry --hint '...'")
     row = wait_for_decision(finding.fix_id, attempt, timeout=timeout)
     if not conversation_id and env("ELEVENLABS_AGENT_ID") and env("ELEVENLABS_API_KEY") and row["decision"]:
-        try:  # a widget call: find it by the fix id it was handed
+        try:  # a widget or direct-Twilio call: find it by the fix id it was handed
             conversation_id = voice.find_conversation(finding.fix_id, started)
         except Exception as exc:
-            say(f"couldn't look up the widget call: {exc!r}")
+            say(f"couldn't look up the call: {exc!r}")
     if conversation_id:
         transcript = fetch_transcript(conversation_id)
         if transcript:

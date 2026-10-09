@@ -87,3 +87,81 @@ def test_transcript_keeps_tool_calls():
     ]}
     text = voice.transcript_text(conv)
     assert "user: Yes." in text and 'agent: [write_decision {"decision": "retry"}]' in text
+
+
+def test_trial_twilio_falls_back_to_a_direct_call(monkeypatch):
+    for k, v in {"ELEVENLABS_API_KEY": "k", "ELEVENLABS_AGENT_ID": "agent", "ELEVENLABS_PHONE_NUMBER_ID": "ph",
+                 "ONCALL_PHONE_NUMBER": "+15555550100", "TWILIO_ACCOUNT_SID": "AC" + "0" * 32,
+                 "TWILIO_AUTH_TOKEN": "0" * 32, "TWILIO_FROM_NUMBER": "+15555550199"}.items():
+        monkeypatch.setenv(k, v)
+    sent = []
+
+    class Resp:
+        def __init__(self, status, payload=None, text=""):
+            self.status_code, self._payload, self.text = status, payload, text
+
+        def json(self):
+            return self._payload
+
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                raise RuntimeError(f"HTTP {self.status_code}")
+
+    def post(url, **kw):
+        sent.append((url, kw))
+        if url.endswith("/outbound-call"):
+            return Resp(200, {"success": False, "message": "trial accounts have limited parameter access"})
+        if url.endswith("/register-call"):
+            return Resp(200, text='"<Response><Connect><Stream url=\\"wss://x\\"/></Connect></Response>"')
+        return Resp(201, {"sid": "CA123"})
+
+    monkeypatch.setattr(voice.httpx, "post", post)
+    placed = voice.call_oncall({"fix_id": "f1", "file": "app/admin.py"})
+    assert placed["via"] == "twilio" and placed["call_sid"] == "CA123" and "trial" in placed["note"]
+    register = next(kw for url, kw in sent if url.endswith("/register-call"))
+    assert register["json"]["direction"] == "outbound"
+    assert register["json"]["conversation_initiation_client_data"]["dynamic_variables"]["fix_id"] == "f1"
+    twilio = next(kw for url, kw in sent if url.endswith("/Calls.json"))
+    assert twilio["data"]["Twiml"].startswith("<Response>") and twilio["data"]["To"] == "+15555550100"
+
+
+def test_direct_twilio_call_fetches_instructions_from_our_server(monkeypatch):
+    for k, v in {"ELEVENLABS_API_KEY": "k", "ELEVENLABS_AGENT_ID": "agent", "ONCALL_PHONE_NUMBER": "+15555550100",
+                 "TWILIO_ACCOUNT_SID": "AC" + "0" * 32, "TWILIO_AUTH_TOKEN": "0" * 32,
+                 "TWILIO_FROM_NUMBER": "+15555550199", "PUBLIC_BASE_URL": "https://tunnel.example",
+                 "TRUST_WEBHOOK_TOKEN": "s3cret", "TRUST_CALL_VIA": "twilio"}.items():
+        monkeypatch.setenv(k, v)
+    sent = []
+
+    class Resp:
+        status_code = 201
+        def json(self):
+            return {"sid": "CA9"}
+
+    monkeypatch.setattr(voice.httpx, "post", lambda url, **kw: sent.append((url, kw)) or Resp())
+    assert voice.call_oncall({"fix_id": "rehearsal-1"})["call_sid"] == "CA9"
+    (url, kw), = sent  # straight to Twilio: ElevenLabs is asked later, when Twilio fetches the URL
+    assert url.endswith("/Calls.json") and "Twiml" not in kw["data"]
+    assert kw["data"]["Url"] == "https://tunnel.example/twilio/connect?fix_id=rehearsal-1&t=s3cret"
+
+
+def test_twilio_connect_serves_the_escalation_brief(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from trust import ledger as ledger_mod
+    from trust.ledger import FileLedger
+    from trust.server import app
+
+    led = FileLedger(tmp_path / "l.jsonl")
+    monkeypatch.setattr(ledger_mod, "_ledger", led)
+    monkeypatch.setenv("TRUST_WEBHOOK_TOKEN", "s3cret")
+    led.insert({"fix_id": "f1", "attempt": 2, "verdict": "escalated",
+                "evidence": {"brief": {"fix_id": "f1", "failed_check": "breaks the admin test"}}})
+    seen = {}
+    monkeypatch.setattr(voice, "register_call", lambda d: seen.update(d) or "<Response/>")
+    http = TestClient(app)
+    assert http.post("/twilio/connect?fix_id=f1&t=wrong").status_code == 401
+    r = http.post("/twilio/connect?fix_id=f1&t=s3cret")
+    assert r.status_code == 200 and r.text == "<Response/>" and "xml" in r.headers["content-type"]
+    assert seen["failed_check"] == "breaks the admin test"
+    assert http.post("/twilio/connect?fix_id=nope&t=s3cret").status_code == 404
