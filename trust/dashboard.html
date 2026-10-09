@@ -63,7 +63,7 @@ a { color:inherit; } .home-link { display:block; color:var(--muted); text-decora
 
 .trap-feature { position:relative; text-align:center; } .trap-scene { position:relative; } .trap-feature .trap-scene::before { content:""; position:absolute; inset:15% 5%; border-radius:50%; background:radial-gradient(circle,#65ff8e1a,transparent 66%); z-index:-1; }
 .trap-art { display:block; width:100%; max-width:450px; margin:auto; overflow:visible; filter:drop-shadow(0 14px 24px #0007); }
-.trap-bug { opacity:0; } .trap-caption { margin-top:-18px; position:relative; } .trap-caption .eyebrow { color:var(--accent); } .trap-caption strong { display:block; font-size:22px; font-weight:550; letter-spacing:-.6px; margin:7px 0; } .trap-caption p { color:var(--muted); font-size:11px; margin:0 0 14px; } .trap-demo { color:var(--ink); background:#192b20; border:1px solid #385d44; border-radius:999px; padding:9px 16px; font-size:11px; } .trap-demo:hover { background:#254132; } .demo-note { display:block; margin-top:8px; color:var(--muted); font-size:9px; }
+.trap-bug { opacity:0; } .trap-caption { margin-top:-18px; position:relative; } .trap-caption .eyebrow { color:var(--accent); } .trap-caption strong { display:block; font-size:22px; font-weight:550; letter-spacing:-.6px; margin:7px 0; } .trap-caption p { color:var(--muted); font-size:11px; margin:0 0 14px; }
 .trap-companion { border-top:1px solid var(--line); padding:12px 18px 20px; text-align:center; } .trap-companion .trap-art { width:170px; } .trap-companion strong { font-size:12px; font-weight:550; } .trap-companion p { color:var(--accent); font-size:10px; margin:6px 0; overflow-wrap:anywhere; } .trap-note { display:block; color:var(--muted); font-size:9px; }
 .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 @media(max-width:760px) { .trap-companion .trap-art { width:115px; } .trap-companion { padding-top:4px; } }
@@ -87,7 +87,7 @@ a { color:inherit; } .home-link { display:block; color:var(--muted); text-decora
  <g class="upper-jaw"><path class="leaf-outer" fill="url(#leaf-landing)" stroke="#83f28b" stroke-width="2"/><path class="leaf-inner" fill="url(#mouth-landing)"/><path class="leaf-veins" stroke="#a24e72" stroke-width="1" opacity=".45"/><path class="leaf-teeth" stroke="#9dff88" stroke-width="2.5" stroke-linecap="round"/></g>
  <g class="lower-jaw"><path class="leaf-outer" fill="url(#leaf-landing)" stroke="#83f28b" stroke-width="2"/><path class="leaf-inner" fill="url(#mouth-landing)"/><path class="leaf-veins" stroke="#a24e72" stroke-width="1" opacity=".45"/><path class="leaf-teeth" stroke="#9dff88" stroke-width="2.5" stroke-linecap="round"/></g>
  <g class="trap-bug"><g transform="translate(200 172)"><ellipse class="bug-wing left" cx="-6" cy="-5" rx="8" ry="5" transform="rotate(-25 -6 -5)" fill="#dae9e2" opacity=".8"/><ellipse class="bug-wing right" cx="6" cy="-5" rx="8" ry="5" transform="rotate(25 6 -5)" fill="#dae9e2" opacity=".8"/><path d="m-5 0-9-2m9 6-9 3m9-12-7-5m17 8 9-2m-9 8 9 3m-9-12 7-5" stroke="#cfe0d8" stroke-width="1.5"/><ellipse cy="3" rx="5" ry="8" fill="#d1aa58"/><circle cy="-6" r="4" fill="#f0d48f"/></g></g>
-</svg></div><div class="trap-caption"><span class="eyebrow">Meet your bug catcher</span><strong>Small bugs. Big appetite.</strong><p>New findings trigger a catch.<br>Proof still decides what ships.</p><button class="trap-demo" id="trap-demo" type="button">Preview a catch <span aria-hidden="true">↗</span></button><span class="demo-note">Illustrative animation · no scan or code changes</span></div></div></div>
+</svg></div><div class="trap-caption"><span class="eyebrow">Meet your bug catcher</span><strong>Small bugs. Big appetite.</strong><p>On the lookout for bugs.<br>Proof still decides what ships.</p></div></div></div>
   <section class="chapters" id="chapters" aria-label="How Trust Issues works"><div class="chapter-heading"><span>Table of contents</span><span>Three chapters. One security loop.</span></div><div class="chapter-grid"><article class="chapter"><span class="chapter-number">01 / THE FINDING</span><h2>Start with the exploit.</h2><p>Establish the vulnerability, then make a focused repair. Every fix gets its own place in the ledger.</p></article><article class="chapter"><span class="chapter-number">02 / THE EVIDENCE</span><h2>Make the proof visible.</h2><p>Six checks examine exploit prevention, the security scan, regression tests, test integrity, and patch scope.</p></article><article class="chapter"><span class="chapter-number">03 / THE JUDGMENT</span><h2>Keep a human in reach.</h2><p>When proof fails, inspect the evidence and decide: retry with a hint, hold the patch, or explicitly ship without proof.</p></article></div></section>
   <footer class="story-foot"><span>Trust Issues / A record of what holds.</span><a href="#workspace">Read the evidence in the workspace →</a></footer>
 </div>
@@ -324,9 +324,10 @@ function leafPose(jaw, aperture, upper) {
   jaw.querySelector(".leaf-teeth").setAttribute("d", teeth);
   jaw.querySelector(".leaf-veins").setAttribute("d", veins);
 }
-function poseTrap(aperture, insect = null) {
-  trapAperture = aperture;
-  for (const rig of trapRigs) {
+function poseTrap(aperture, insect = null, rigs = trapRigs) {
+  if (rigs === trapRigs) trapAperture = aperture;
+  for (const rig of rigs) {
+    rig.aperture = aperture;
     leafPose(rig.upper, aperture, true); leafPose(rig.lower, aperture, false);
     rig.bug.style.opacity = insect ? String(insect.opacity) : "0";
     if (insect) {
@@ -336,7 +337,7 @@ function poseTrap(aperture, insect = null) {
   }
 }
 function easeOut(t) { return 1 - Math.pow(1 - Math.max(0, Math.min(1,t)), 3); }
-function capturePose(ms, initialAperture) {
+function capturePose(ms, initialAperture, rigs = trapRigs) {
   let aperture;
   if (ms < 320) aperture = initialAperture + (1 - initialAperture) * easeOut(ms/320);
   else if (ms < 980) aperture = 1;
@@ -350,7 +351,7 @@ function capturePose(ms, initialAperture) {
       opacity: Math.min(1,(ms-320)/90) * (ms > 1000 ? Math.max(0,1-(ms-1000)/70) : 1),
       wing:t < 1 ? Math.sin(ms*.09)*18 : 0 };
   }
-  poseTrap(aperture, insect);
+  poseTrap(aperture, insect, rigs);
 }
 poseTrap(1);
 // A capture acknowledges a new finding; it never changes a security verdict.
@@ -358,33 +359,35 @@ const observedFindings = new Set();
 let findingsHydrated = false;
 let captureActive = false;
 let captureQueue = [];
-function playCapture(finding, demo = false) {
+function playCapture(finding, ambient = false) {
   if (captureActive) return;
   captureActive = true;
-  $("#trap-demo").disabled = true;
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const initialAperture = trapAperture;
-  if (reducedMotion) poseTrap(.14);
+  // Ambient catches belong to the introduction, never the live workspace.
+  const rigs = ambient ? trapRigs.slice(0, 1) : trapRigs;
+  const initialAperture = rigs[0]?.aperture ?? trapAperture;
+  if (reducedMotion) poseTrap(.14, null, rigs);
   else {
     const start = performance.now();
     const frame = (now) => {
-      capturePose(now-start, initialAperture);
+      capturePose(now-start, initialAperture, rigs);
       if (captureActive && now-start < 1800) captureFrame = requestAnimationFrame(frame);
     };
     captureFrame = requestAnimationFrame(frame);
   }
-  if (!demo) {
+  if (!ambient) {
     $("#trap-status").textContent = `Catching a finding in ${finding.file}.`;
     $("#capture-live").textContent = `New vulnerability detected in ${finding.file}. Inspect its evidence in the fix queue.`;
   }
   setTimeout(() => {
     if (captureFrame !== null) cancelAnimationFrame(captureFrame);
     captureFrame = null;
-    poseTrap(.14);
-    $("#trap-demo").disabled = false;
+    poseTrap(.14, null, rigs);
     captureActive = false;
-    const count = group(ledgerRows).length;
-    $("#trap-status").textContent = `${count} tracked ${count === 1 ? "finding" : "findings"} · proof still required.`;
+    if (!ambient) {
+      const count = group(ledgerRows).length;
+      $("#trap-status").textContent = `${count} tracked ${count === 1 ? "finding" : "findings"} · proof still required.`;
+    }
     nextCapture();
   }, reducedMotion ? 600 : 1800);
 }
@@ -402,7 +405,19 @@ function observeFindings(rows) {
   if (!captureActive) $("#trap-status").textContent = findings.length ? `${findings.length} tracked ${findings.length === 1 ? "finding" : "findings"} · proof still required.` : "Listening for new findings.";
   nextCapture();
 }
-$("#trap-demo").onclick = () => playCapture({file:"sample bug"}, true);
+let ambientTimer = null;
+function scheduleAmbientCapture(delay = 8500 + Math.random() * 3500) {
+  if (ambientTimer !== null) clearTimeout(ambientTimer);
+  ambientTimer = null;
+  if ($("#story").hidden || document.hidden || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  ambientTimer = setTimeout(() => {
+    ambientTimer = null;
+    if ($("#story").hidden || document.hidden) return;
+    if (!captureActive && !captureQueue.length) playCapture(null, true);
+    scheduleAmbientCapture();
+  }, delay);
+}
+document.addEventListener("visibilitychange", () => scheduleAmbientCapture(1800));
 async function refresh() {
   try {
     const response = await fetch("/api/rows");
@@ -432,6 +447,7 @@ function showPage() {
   const inWorkspace = window.location.hash === "#workspace";
   $("#product").hidden = !inWorkspace;
   $("#story").hidden = inWorkspace;
+  scheduleAmbientCapture(1800);
   if (window.location.hash !== "#chapters") window.scrollTo(0, 0);
   document.title = inWorkspace ? "Trust Issues · Security workspace" : "Trust Issues · The security field guide";
   if (inWorkspace) { renderWorkspace(); $("#page-title").focus({ preventScroll: true }); }

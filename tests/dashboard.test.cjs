@@ -14,7 +14,7 @@ function harness({withArt=false, reducedMotion=true}={}) {
   const parts = new Map();
   const part = key => {if(!parts.has(key))parts.set(key,element());return parts.get(key);};
   const art = {querySelector:s=>s.includes('jaw')?{querySelector:k=>part(s+' '+k)}:part(s),querySelectorAll:()=>[part('wing-left'),part('wing-right')]};
-  const document = {querySelector:get, querySelectorAll:s=> {
+  const document = {hidden:false,addEventListener(){},querySelector:get, querySelectorAll:s=> {
     if(s==='.trap-art') return withArt?[art]:[];
     if(s==='[data-fix-index]' && get('#fixes').innerHTML !== lastQueue) {lastQueue=get('#fixes').innerHTML;selectors.set(s,[...lastQueue.matchAll(/data-fix-index="(\d+)"/g)].map(m=>element({fixIndex:m[1]})));}
     if(s==='[data-attempt]' && get('#evidence').innerHTML !== lastAttempts) {lastAttempts=get('#evidence').innerHTML;selectors.set(s,[...lastAttempts.matchAll(/data-attempt="(\d+)"/g)].map(m=>element({attempt:m[1]})));}
@@ -24,7 +24,7 @@ function harness({withArt=false, reducedMotion=true}={}) {
   const context=vm.createContext({document,fetch:async(url,options)=>{
     if(options) {if(networkError) throw Error('offline');posts.push(JSON.parse(options.body));return {ok:postOK,json:async()=>({detail:'No escalation is waiting'})};}
     return {ok,json:async()=>url==='/api/config'?{}:{ledger:'test',rows}};
-  },performance:{now:()=>0},requestAnimationFrame:fn=>{frames.push(fn);return frames.length;},cancelAnimationFrame(){},setInterval(){},setTimeout:fn=>{timers.push(fn);return timers.length;},alert:m=>alerts.push(m),window:{matchMedia:()=>({matches:reducedMotion}),location:{hash:"#workspace"},addEventListener(){},scrollTo(){}},Date,Map});
+  },performance:{now:()=>0},requestAnimationFrame:fn=>{frames.push(fn);return frames.length;},cancelAnimationFrame(){},setInterval(){},setTimeout:(fn,delay)=>{fn.delay=delay;timers.push(fn);return fn;},clearTimeout:fn=>{const i=timers.indexOf(fn);if(i>=0)timers.splice(i,1);},alert:m=>alerts.push(m),window:{matchMedia:()=>({matches:reducedMotion}),location:{hash:"#workspace"},addEventListener(){},scrollTo(){}},Date,Map});
   vm.runInContext(source,context);
   return {get,nav,decisions,posts,alerts,context,timers,frames,parts,buttons:s=>document.querySelectorAll(s),setPostOK:v=>postOK=v,setNetworkError:v=>networkError=v,setRows:r=>rows=r,setOK:v=>ok=v,run:s=>vm.runInContext(s,context),refresh:()=>vm.runInContext('refresh()',context)};
 }
@@ -79,11 +79,10 @@ test('flytrap catches each new fix once, queues arrivals, and ignores initial hi
   await h.refresh();assert.equal(h.timers.length,1,'polling does not replay the catch');
   h.timers.shift()();assert.match(h.get('#capture-live').textContent,/another.py/);h.timers.shift()();assert.equal(h.run('captureActive'),false);assert.equal(h.run('trapAperture'),.14,'the trap stays closed after catching');
   h.setRows([row('existing'),row('new',{verdict:'failed'}),row('new',{attempt:2,verdict:'proven'}),row('another',{verdict:'failed'})]);await h.refresh();assert.equal(h.timers.length,0,'a retry is not a new finding');
-  const announcement=h.get('#capture-live').textContent;h.get('#trap-demo').onclick();assert.equal(h.posts.length,0);assert.equal(h.get('#capture-live').textContent,announcement,'demo never claims a real detection');h.timers.shift()();
 });
 
 test('articulated leaves retain volume, teeth remain visible, and the insect disappears after capture',()=>{
-  const h=harness({withArt:true,reducedMotion:false});h.get('#trap-demo').onclick();
+  const h=harness({withArt:true,reducedMotion:false});h.run('playCapture({file:"app/test.py"})');
   h.frames.shift()(650);assert(Number(h.parts.get('.trap-bug').style.opacity)>0,'insect approaches before the snap');
   h.frames.shift()(1005);
   for(const jaw of ['.upper-jaw','.lower-jaw']) {
@@ -95,4 +94,18 @@ test('articulated leaves retain volume, teeth remain visible, and the insect dis
   const lines=[...h.parts.get('.upper-jaw .leaf-teeth').attrs.d.matchAll(/M([\d.-]+) ([\d.-]+)L([\d.-]+) ([\d.-]+)/g)];
   assert.equal(lines.length,11);for(const [,x,y,tx,ty] of lines) assert(Math.hypot(Number(tx)-Number(x),Number(ty)-Number(y))>10,'teeth are not flattened with the leaves');
   h.timers.shift()();assert.equal(h.run('trapAperture'),.14);
+});
+
+test('landing catches run automatically, pause outside the introduction, and never impersonate findings',async()=>{
+  const h=harness({withArt:true,reducedMotion:false});await h.refresh();
+  h.run('window.location.hash="#story";showPage()');
+  assert.equal(h.timers.length,1);assert.equal(h.timers[0].delay,1800);
+  const status=h.get('#trap-status').textContent, announcement=h.get('#capture-live').textContent;
+  h.timers.shift()();assert.equal(h.run('captureActive'),true);assert.equal(h.posts.length,0);
+  assert(h.timers.some(t=>t.delay>=8500&&t.delay<=12000),'repeat with a quiet, varying pause');
+  h.timers.shift()();assert.equal(h.get('#trap-status').textContent,status);assert.equal(h.get('#capture-live').textContent,announcement);
+  assert.equal(h.run('trapAperture'),1,'ambient catches do not change the live workspace pose');
+  h.run('window.location.hash="#workspace";showPage()');assert.equal(h.timers.length,0);
+  h.run('document.hidden=true;window.location.hash="#story";showPage()');assert.equal(h.timers.length,0,'hidden tabs stay quiet');
+  const reduced=harness();reduced.run('window.location.hash="#story";showPage()');assert.equal(reduced.timers.length,0,'reduced-motion visitors get no ambient loop');
 });
