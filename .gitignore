@@ -32,3 +32,4 @@ runs/
 .idea/
 .vscode/
 .history/
+.vercel

@@ -11,3 +11,4 @@ fixtures
 scripts
 examples
 node_modules
+.env.local
