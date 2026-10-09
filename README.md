@@ -88,6 +88,22 @@ for the same CLI, or `uv run trust`.
 With `ELEVENLABS_AGENT_ID` set, the dashboard also shows the ElevenLabs web widget on a pending
 escalation, which is the no-phone fallback.
 
+## Demo: a push brings a bug back
+
+`scripts/demo_push.sh` stages the CI story on a scratch repo: a clean shop service (both seeded
+bugs fixed), a local `origin`, and two "pushes" from a teammate that each bring one bug back.
+
+```
+scripts/demo_push.sh setup --clear-ledger   # clean repo at ~/trust-issues-demo, dashboard rows cleared
+scripts/demo_push.sh watch                  # terminal 2: watches new commits every 15s
+scripts/demo_push.sh push users             # bug 1 returns -> proven, PR branch pushed, nobody called
+scripts/demo_push.sh push admin             # bug 2 returns -> fails proof twice -> on-call rings
+scripts/demo_push.sh status                 # commits, and the PR branches Trust Issues pushed
+```
+
+Each push is caught on the next cycle and only the changed files are checked. Idle cycles don't
+scan, so a short interval costs nothing. Run `setup` again to reset between rehearsals.
+
 ## Using it on your own repo
 
 ```

@@ -61,16 +61,15 @@ def cycle(target, fixer, state, changed_only=False, pull=False):
     if pull and git(target, "rev-parse", "--git-dir"):
         say("pulling" if git(target, "pull", "--ff-only") is not None else "pull failed; scanning what's here")
     head = git(target, "rev-parse", "HEAD")
+    if changed_only and head and tstate.get("last_sha") == head:
+        return None  # nothing pushed since the last pass: no scan, so short intervals stay cheap
 
     findings, engine = semgrep.sqli_findings(target)
-    if changed_only and head and tstate.get("last_sha") and tstate["last_sha"] != head:
+    if changed_only and head and tstate.get("last_sha"):
         # --relative: paths relative to the target, which may be a subfolder of the repo
         changed = set((git(target, "diff", "--name-only", "--relative", tstate["last_sha"], head) or "").splitlines())
         findings = [f for f in findings if f.path in changed]
-        say(f"{len(changed)} file(s) changed since {tstate['last_sha'][:7]}")
-    elif changed_only and head and tstate.get("last_sha") == head:
-        say(f"no new commits since {head[:7]}")
-        findings = []
+        say(f"new commit {head[:7]}: {len(changed)} file(s) changed since {tstate['last_sha'][:7]}")
 
     results = {}
     for f in findings:
@@ -98,8 +97,9 @@ def watch(target, fixer, every="15m", once=False, changed_only=False, pull=False
     interval = parse_interval(every)
     state = load_state()
     while True:
-        cycle(target, fixer, state, changed_only=changed_only, pull=pull)
+        scanned = cycle(target, fixer, state, changed_only=changed_only, pull=pull) is not None
         if once:
             return
-        say(f"next scan in {every}")
+        if scanned:  # stay quiet while nothing is pushed, so the terminal reads well on stage
+            say(f"waiting for the next push (checking every {every})" if changed_only else f"next scan in {every}")
         time.sleep(interval)
