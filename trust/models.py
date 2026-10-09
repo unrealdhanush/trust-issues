@@ -11,14 +11,21 @@ class Finding:
     vuln_class: str = "sqli"
     related_rules: list[str] = field(default_factory=list)
     function: str = ""  # qualname of the vulnerable function, "<module>" at top level
+    run: str = ""  # stamped when a fix starts: each time a bug turns up is its own incident
 
     @property
-    def fix_id(self):
-        # One finding per function, so file + function is the identity. The rule id differs
-        # between the MCP server and the CLI (different rule namespaces), so it stays out.
+    def key(self):
+        """Where the bug lives: stable across runs. One finding per function, so file + function
+        is the identity; the rule id differs between the MCP server and the CLI, so it stays out."""
         digest = hashlib.sha1(f"{self.vuln_class}:{self.path}:{self.function}".encode()).hexdigest()[:6]
         stem = self.path.rsplit("/", 1)[-1].removesuffix(".py")
         return f"{self.vuln_class}-{stem}-{digest}"
+
+    @property
+    def fix_id(self):
+        """This incident: the key plus when it was worked on. A bug that comes back gets a new id,
+        so its attempts, call and PR don't overwrite the history of the last time."""
+        return f"{self.key}-{self.run}" if self.run else self.key
 
     @property
     def rule_short(self):

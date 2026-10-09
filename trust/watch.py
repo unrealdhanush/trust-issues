@@ -74,16 +74,16 @@ def cycle(target, fixer, state, changed_only=False, pull=False):
     results = {}
     for f in findings:
         digest = function_hash(target, f)
-        prev = tstate["handled"].get(f.fix_id)
+        prev = tstate["handled"].get(f.key)
         if prev and prev["hash"] == digest:
-            say(f"{f.fix_id}: already {prev['outcome']}, code unchanged; skipping")
+            say(f"{f.key}: already {prev['outcome']}, code unchanged; skipping")
             continue
         try:
             outcome = fixer(f)
         except Exception as exc:  # one bad fix shouldn't stop the watch; retried next cycle
-            say(f"{f.fix_id}: error {exc!r}; will retry next cycle")
+            say(f"{f.key}: error {exc!r}; will retry next cycle")
             continue
-        tstate["handled"][f.fix_id] = {"hash": digest, "outcome": outcome, "file": f.path,
+        tstate["handled"][f.key] = {"hash": digest, "outcome": outcome, "fix_id": f.fix_id, "file": f.path,
                                        "function": f.function, "at": datetime.now(timezone.utc).isoformat()}
         save_state(state)
         results[f.fix_id] = outcome

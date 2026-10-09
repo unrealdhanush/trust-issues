@@ -27,6 +27,7 @@ nav { display:grid; gap:6px; } .nav { display:flex; align-items:center; gap:10px
 .evidence-body { padding:20px 24px; } .attempts { display:flex; flex-wrap:wrap; gap:6px; margin:12px 0 20px; } .attempt-button { border:1px solid var(--line); border-radius:5px; padding:7px 10px; background:var(--panel); color:var(--muted); font-size:11px; } .attempt-button.active { border-color:#385e42; color:var(--accent); background:#183322; }
 .proof-heading { display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:12px; } h3 { margin:0; font-size:13px; font-weight:600; } .proof-heading span { font-size:10px; color:var(--muted); }
 .gates { display:grid; grid-template-columns:1fr 1fr; gap:9px; } .gate { display:flex; gap:10px; border:1px solid var(--line); border-radius:10px; padding:13px 12px; min-width:0; } .gate-icon { flex:none; display:grid; place-items:center; width:20px; height:20px; border-radius:50%; background:var(--ok-bg); color:var(--ok); font-size:12px; } .gate.fail .gate-icon { color:var(--bad); background:var(--bad-bg); } .gate.unknown .gate-icon { color:var(--muted); background:#25312a; } .gate strong { display:block; font-size:11px; font-weight:550; } .gate small { display:block; color:var(--muted); font-size:10px; margin-top:3px; }
+.decision-line { display:block; margin-top:6px; font-size:11px; color:var(--warn); overflow-wrap:anywhere; }
 .reasons { margin-top:16px; background:#151f18; padding:12px; border-radius:6px; color:var(--muted); font-size:11px; } .reasons p { margin:4px 0; } .reasons ul { margin:5px 0; padding-left:18px; } details { margin-top:14px; border-top:1px solid var(--line); padding-top:12px; } summary { cursor:pointer; color:var(--accent); font-size:11px; } pre { white-space:pre-wrap; overflow-wrap:anywhere; background:#0b100d; border-radius:6px; padding:12px; font:11px/1.7 ui-monospace,SFMono-Regular,monospace; max-height:320px; overflow:auto; }
 pre.diff { padding:8px 0; } pre.diff span { display:block; padding:0 12px; min-height:1.7em; } .d-add { color:var(--ok); background:var(--ok-bg); } .d-del { color:var(--bad); background:var(--bad-bg); } .d-hunk { color:var(--warn); } .d-file { color:var(--ink); font-weight:600; } .d-ctx { color:var(--muted); }
 .call-log { margin-top:10px; display:flex; flex-direction:column; gap:8px; max-height:420px; overflow:auto; } .turn { display:grid; grid-template-columns:72px 1fr; gap:10px; font-size:12px; line-height:1.55; } .turn .who { font:10px ui-monospace,SFMono-Regular,monospace; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); padding-top:2px; } .turn.agent .who { color:var(--accent); } .turn p { margin:0; color:var(--ink); } .turn.user p { color:var(--warn); } .tool-step { margin-left:82px; font-size:11px; color:var(--muted); border-left:2px solid var(--line); padding:2px 0 2px 10px; } .tool-step b { color:var(--ok); font-weight:500; } .call-hint { margin:8px 0 0; font-size:12px; color:var(--ink); }
@@ -233,8 +234,21 @@ function renderFix(rows) {
     <div class="reasons">${reasons ? `<strong>What needs attention</strong><ul>${reasons}</ul>` : `<p>${r?.verdict === "proven" ? "All six checks hold for this attempt." : "Review the recorded checks before making a decision."}</p>`}${preexisting ? `<p>Findings that predate this patch: ${preexisting}</p>` : ""}${(r?.failing_tests || []).length ? `<p>Failing tests: ${r.failing_tests.map(esc).join(", ")}</p>` : ""}</div>
     ${ev.diff ? `<details><summary>Patch diff</summary><pre class="diff">${diffHtml(ev.diff)}</pre></details>` : ""}${escalations}</div>`;
 }
+function escalationsOf(g) { return g.filter((r) => r.verdict === "escalated"); }
+function decisionLine(g) {
+  const last = escalationsOf(g).at(-1);
+  if (!last) return "";
+  return last.decision ? `Decided: ${esc(last.decision)}${last.hint ? ` · “${esc(last.hint)}”` : ""}` : "Waiting on on-call";
+}
 function visibleFixes() {
-  return group(ledgerRows).reverse().filter((g) => currentView !== "decisions" || status(g)[0] === "waiting");
+  const fixes = group(ledgerRows).reverse();
+  if (currentView !== "decisions") return fixes;
+  // Every time a human was asked: still waiting first, then the most recent decisions.
+  const asked = fixes.filter((g) => escalationsOf(g).length);
+  const waiting = asked.filter((g) => status(g)[0] === "waiting");
+  const decided = asked.filter((g) => status(g)[0] !== "waiting")
+    .sort((a, b) => String(escalationsOf(b).at(-1).ts).localeCompare(String(escalationsOf(a).at(-1).ts)));
+  return [...waiting, ...decided];
 }
 function renderWorkspace() {
   const fixes = visibleFixes();
@@ -245,8 +259,9 @@ function renderWorkspace() {
   const queueHTML = fixes.map((g, i) => {
     const r = g[0], [cls, label] = status(g);
     const attempts = g.filter((r) => r.verdict === "proven" || r.verdict === "failed").length;
-    return `<button class="queue-item ${r.fix_id === selectedFix ? "selected" : ""}" data-fix-index="${i}" aria-pressed="${r.fix_id === selectedFix}"><span class="file">${esc(r.file)}</span><span class="vuln">${esc(r.vuln_class || r.rule_id)}</span><span class="queue-meta"><span class="status s-${cls}">${label}</span><span>${attempts} ${attempts === 1 ? "attempt" : "attempts"}</span></span></button>`;
-  }).join("") || `<div class="empty"><strong>${currentView === "decisions" ? "No decisions waiting" : "Your fix queue is clear"}</strong>${currentView === "decisions" ? "Escalations will appear here when a human is needed." : "New findings appear here as the security loop runs."}</div>`;
+    const decision = decisionLine(g);
+    return `<button class="queue-item ${r.fix_id === selectedFix ? "selected" : ""}" data-fix-index="${i}" aria-pressed="${r.fix_id === selectedFix}"><span class="file">${esc(r.file)}</span><span class="vuln">${esc(r.vuln_class || r.rule_id)}</span>${decision ? `<span class="decision-line">${decision}</span>` : ""}<span class="queue-meta"><span class="status s-${cls}">${label}</span><span>${attempts} ${attempts === 1 ? "attempt" : "attempts"}</span></span></button>`;
+  }).join("") || `<div class="empty"><strong>${currentView === "decisions" ? "No human decisions yet" : "Your fix queue is clear"}</strong>${currentView === "decisions" ? "When a fix can't be proven, the on-call call and its decision appear here." : "New findings appear here as the security loop runs."}</div>`;
   $("#queue-count").textContent = `${fixes.length} ${fixes.length === 1 ? "fix" : "fixes"}`;
   if (queueHTML !== renderedQueue) {
     $("#fixes").innerHTML = queueHTML; renderedQueue = queueHTML;
@@ -316,8 +331,8 @@ for (const b of document.querySelectorAll("[data-view]")) b.onclick = () => {
   }
   $("#stats").hidden = currentView !== "overview";
   $("#page-title").textContent = {overview:"Security overview", fixes:"All fixes", decisions:"Human decisions"}[currentView];
-  $("#page-subtitle").textContent = {overview:"Every repair, every check, every human decision.", fixes:"Inspect each repair and the evidence behind it.", decisions:"Review failed proof before choosing the next step."}[currentView];
-  $("#queue-title").textContent = currentView === "decisions" ? "Awaiting decisions" : "Fix queue";
+  $("#page-subtitle").textContent = {overview:"Every repair, every check, every human decision.", fixes:"Inspect each repair and the evidence behind it.", decisions:"Every time a human was asked: the failed proof, the call, and what they decided."}[currentView];
+  $("#queue-title").textContent = currentView === "decisions" ? "Decisions" : "Fix queue";
   renderWorkspace();
 };
 

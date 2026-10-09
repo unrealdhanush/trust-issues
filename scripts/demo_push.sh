@@ -11,7 +11,7 @@
 #
 # DEMO_DIR (default ~/trust-issues-demo) holds the repo; DEMO_DIR.git is its origin.
 # EVERY (default 15s) is the watch interval; PAUSE (default 6) the seconds between narrated beats.
-# --clear-ledger removes earlier rows for these two fixes, so the dashboard starts empty for them.
+# Each push is a new incident with its own dashboard card; --clear-ledger removes the earlier ones.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -52,8 +52,8 @@ if STATE_FILE.exists():
     ti_python "
 from trust.ledger import get_ledger
 from trust.models import Finding
-ids = [Finding('', p, 0, '', function=f).fix_id for p, f in [('app/users.py', 'search_users'), ('app/admin.py', 'list_orders')]]
-for i in ids: get_ledger().delete(fix_id=i)
+ids = [Finding('', p, 0, '', function=f).key for p, f in [('app/users.py', 'search_users'), ('app/admin.py', 'list_orders')]]
+for i in ids: get_ledger().delete(prefix=i)
 print('[demo] cleared ledger rows for', ', '.join(ids))"
   fi
   say "clean repo at $DEMO (origin: $REMOTE). Next: '$0 watch' in another terminal."

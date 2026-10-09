@@ -29,7 +29,7 @@ REGRESSION_PREFIX = "test_security_"
 
 def regression_test(finding: Finding, exploit_src):
     """The exploit that proved the fix, kept in the suite: if it ever fails again, the bug is back."""
-    name = re.sub(r"\W", "_", finding.fix_id)
+    name = re.sub(r"\W", "_", finding.key)  # one test per bug location; a recurrence refreshes it
     path = (Path(EXPLOIT_FILE).parent / f"{REGRESSION_PREFIX}{name}.py").as_posix()
     header = (
         f'"""Security regression test added by Trust Issues ({finding.fix_id}).\n\n'
@@ -223,6 +223,7 @@ def deliver(target, finding, patch, out, apply, open_pr, proven):
 
 def fix(target, finding: Finding, agent, apply=False, open_pr=False):
     ledger = get_ledger()
+    finding.run = finding.run or time.strftime("%m%d%H%M%S", time.gmtime())
     say(f"{finding.fix_id}: {finding.rule_short} in {finding.path}:{finding.line} ({finding.function})")
     workdir = RUNS_DIR / finding.fix_id / "work"
     harness = Harness(target, finding, workdir)
@@ -295,8 +296,12 @@ def cmd_run(args):
         findings = [f for f in findings if f.path == args.only]
     if args.fresh:
         for f in findings:
-            shutil.rmtree(RUNS_DIR / f.fix_id, ignore_errors=True)
-    results = {f.fix_id: fix(target, f, agent, apply=args.apply, open_pr=args.open_pr) for f in findings}
+            for old in RUNS_DIR.glob(f"{f.key}*"):
+                shutil.rmtree(old, ignore_errors=True)
+    results = {}
+    for f in findings:
+        outcome = fix(target, f, agent, apply=args.apply, open_pr=args.open_pr)
+        results[f.fix_id] = outcome
     say("done: " + json.dumps(results))
 
 

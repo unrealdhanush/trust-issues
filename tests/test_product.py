@@ -154,7 +154,7 @@ def test_pr_carries_the_exploit_as_a_regression_test(repo, tmp_path, monkeypatch
     assert loop.fix(work, f, ScriptedAgent(), open_pr=True) == "proven"
 
     branch = f"trust-issues/{f.fix_id}"
-    test_path = f"tests/test_security_{f.fix_id.replace('-', '_')}.py"
+    test_path = f"tests/test_security_{f.key.replace('-', '_')}.py"
     files = sh(remote, "git", "ls-tree", "-r", "--name-only", branch).splitlines()
     assert test_path in files
     assert "Adds `" + test_path in (tmp_path / "runs" / f.fix_id / "PR.md").read_text()
@@ -166,3 +166,25 @@ def test_pr_carries_the_exploit_as_a_regression_test(repo, tmp_path, monkeypatch
     assert run().returncode == 0, "the regression test passes on the fix"
     (clone / "app/users.py").write_text((ROOT / "target/app/users.py").read_text())
     assert run().returncode != 0, "and fails when the vulnerable code returns"
+
+
+def test_a_bug_that_comes_back_is_a_new_incident(tmp_path, monkeypatch):
+    """Same bug, same place, twice: two incidents in the ledger, neither overwriting the other."""
+    from trust import ledger as ledger_mod
+    from trust import loop
+    from trust.agent import ScriptedAgent
+    from trust.ledger import FileLedger
+
+    led = FileLedger(tmp_path / "ledger.jsonl")
+    monkeypatch.setattr(ledger_mod, "_ledger", led)
+    monkeypatch.setattr(loop, "RUNS_DIR", tmp_path / "runs")
+    first, second = finding("users", 13), finding("users", 13)
+    first.run, second.run = "1009120000", "1009130000"
+    assert loop.fix(ROOT / "target", first, ScriptedAgent()) == "proven"
+    assert loop.fix(ROOT / "target", second, ScriptedAgent()) == "proven"
+
+    assert first.key == second.key and first.fix_id != second.fix_id
+    by_fix = {}
+    for r in led.rows():
+        by_fix.setdefault(r["fix_id"], []).append(r["verdict"])
+    assert by_fix == {first.fix_id: ["proven"], second.fix_id: ["proven"]}

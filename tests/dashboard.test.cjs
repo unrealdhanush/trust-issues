@@ -47,7 +47,9 @@ test('pending decisions filter, selected fix payloads, and hint persistence',asy
   for(const b of h.decisions){await b.onclick();assert.deepEqual(h.posts.at(-1),{fix_id:'admin',decision:b.dataset.d,hint:'keep this hint'});}
   h.nav[2].onclick();assert.equal(h.get('#stats').hidden,true);assert.equal(h.get('#queue-count').textContent,'1 fix');assert.doesNotMatch(h.get('#fixes').innerHTML,/app\/users.py/);
   h.setRows([row(),row('admin',{verdict:'failed'}),row('admin',{attempt:2,verdict:'escalated',decision:'hold'})]);await h.refresh();
-  assert.equal(h.get('#call-section').hidden,true);assert.equal(h.get('#count-waiting').textContent,0);assert.match(h.get('#evidence').innerHTML,/No human decision needed/);
+  assert.equal(h.get('#call-section').hidden,true);assert.equal(h.get('#count-waiting').textContent,0);
+  // Decided fixes stay on the Decisions tab as a record, with what was decided.
+  assert.match(h.get('#fixes').innerHTML,/app\/admin.py/);assert.match(h.get('#fixes').innerHTML,/Decided: hold/);assert.doesNotMatch(h.get('#fixes').innerHTML,/app\/users.py/);
 });
 test('missing checks do not show pass, empty state, and disconnect keeps evidence',async()=>{
   const h=harness();await h.refresh();assert.match(h.get('#evidence').innerHTML,/Ready for the first repair/);
@@ -144,4 +146,19 @@ test('landing catches run automatically, pause outside the introduction, and nev
   h.run('window.location.hash="#workspace";showPage()');assert.equal(h.timers.length,0);
   h.run('document.hidden=true;window.location.hash="#story";showPage()');assert.equal(h.timers.length,0,'hidden tabs stay quiet');
   const reduced=harness();reduced.run('window.location.hash="#story";showPage()');assert.equal(reduced.timers.length,0,'reduced-motion visitors get no ambient loop');
+});
+
+test('decisions tab keeps every human decision, waiting ones first', async()=>{
+  const h=harness();
+  h.setRows([
+    row('old',{verdict:'failed'}),row('old',{attempt:2,verdict:'escalated',decision:'retry',hint:'update the sort test',ts:'2026-10-09T20:00:00'}),row('old',{attempt:3,verdict:'proven'}),
+    row('new',{verdict:'failed'}),row('new',{attempt:2,verdict:'escalated',decision:'ship',ts:'2026-10-09T21:00:00'}),
+    row('live',{verdict:'failed'}),row('live',{attempt:2,verdict:'escalated',decision:'',ts:'2026-10-09T19:00:00'}),
+    row('quiet')]);
+  await h.refresh();h.nav[2].onclick();
+  const q=h.get('#fixes').innerHTML;
+  assert.equal(h.get('#queue-count').textContent,'3 fixes');assert.doesNotMatch(q,/quiet.py/);
+  assert(q.indexOf('live.py')<q.indexOf('new.py')&&q.indexOf('new.py')<q.indexOf('old.py'),'waiting first, then newest decision');
+  assert.match(q,/Waiting on on-call/);assert.match(q,/Decided: ship/);assert.match(q,/Decided: retry · “update the sort test”/);
+  assert.equal(h.get('#decision-count').textContent,1,'the badge still counts only what is waiting');
 });
