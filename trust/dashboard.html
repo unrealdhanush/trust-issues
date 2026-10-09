@@ -240,7 +240,7 @@ function renderCalls(rows) {
   widgetFor = r.fix_id + r.attempt;
   const ev = JSON.parse(r.evidence || "{}");
   const widget = agentId
-    ? `<elevenlabs-convai agent-id="${esc(agentId)}" dynamic-variables='${esc(JSON.stringify({ fix_id: r.fix_id, vuln_class: r.vuln_class || "Security vulnerability", file: r.file, failed_check: (ev.reasons || [])[0] || "proof failed", attempts: String(r.attempt), failing_tests: (r.failing_tests || []).join(", ") || "none" }))}'></elevenlabs-convai>`
+    ? `<elevenlabs-convai agent-id="${esc(agentId)}" dynamic-variables='${esc(JSON.stringify(Object.fromEntries(Object.entries(ev.brief || { fix_id: r.fix_id, vuln_class: r.vuln_class || "Security vulnerability", file: r.file, failed_check: (ev.reasons || [])[0] || "proof failed", attempts: r.attempt, failing_tests: (r.failing_tests || []).join(", ") || "none" }).map(([k, v]) => [k, String(v)]))))}'></elevenlabs-convai>`
     : "";
   $("#calls").innerHTML = `<div class="card call">
     <strong>${esc(r.fix_id)}</strong> couldn't be proven after ${r.attempt} attempts.

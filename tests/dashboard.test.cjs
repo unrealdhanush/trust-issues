@@ -71,6 +71,17 @@ test('field guide and workspace navigation preserve the selected fix and hint',a
   h.run('window.location.hash="#workspace";showPage()');assert.equal(h.get('#product').hidden,false);assert.equal(h.get('#story').hidden,true);
   assert.match(h.get('#evidence').innerHTML,/app\/admin.py/);assert.equal(h.get('#hint').value,'keep my draft');
 });
+test('the voice widget gets the spoken brief, not raw evidence', async()=>{
+  const h=harness();await new Promise(r=>setTimeout(r,0));h.run('agentId="agent_test"');  // after the startup config load
+  const brief={fix_id:'admin',vuln_class:'SQL injection',file:'app/admin.py',failed_check:'the fix closes the hole but breaks the admin test for orders custom sort expression',attempts:2,failing_tests:'the admin test for orders custom sort expression'};
+  h.setRows([row('admin',{verdict:'failed'}),row('admin',{attempt:2,verdict:'escalated',decision:'',failing_tests:['tests/test_admin.py::test_orders_custom_sort_expression'],evidence:JSON.stringify({reasons:['existing suite failed: tests/test_admin.py::test_orders_custom_sort_expression'],brief})})]);
+  await h.refresh();
+  const html=h.get('#calls').innerHTML;
+  assert.match(html,/elevenlabs-convai/);
+  assert.match(html,/the fix closes the hole but breaks the admin test/);
+  assert.doesNotMatch(html,/dynamic-variables='[^']*::/);
+  assert.match(html,/&quot;attempts&quot;:&quot;2&quot;/);
+});
 
 test('flytrap catches each new fix once, queues arrivals, and ignores initial history or retries',async()=>{
   const h=harness();h.setRows([row('existing')]);await h.refresh();assert.equal(h.timers.length,0);

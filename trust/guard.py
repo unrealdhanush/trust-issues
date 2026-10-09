@@ -9,7 +9,8 @@ import fnmatch
 import re
 from pathlib import Path
 
-IGNORED_PARTS = {"__pycache__", ".pytest_cache", ".venv", "venv"}
+IGNORED_PARTS = {".git", "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".tox",
+                 ".venv", "venv", "node_modules", "runs"}
 IGNORED_SUFFIXES = {".pyc", ".sqlite", ".db"}
 
 PROTECTED = [
