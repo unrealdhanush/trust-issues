@@ -1,0 +1,6 @@
+# Vercel deploy only: the server's dependencies (see api/index.py). The full tool uses pyproject.toml.
+clickhouse-connect>=0.8
+fastapi>=0.115
+httpx>=0.27
+pydantic>=2.7
+python-dotenv>=1.0

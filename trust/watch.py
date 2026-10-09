@@ -64,7 +64,8 @@ def cycle(target, fixer, state, changed_only=False, pull=False):
 
     findings, engine = semgrep.sqli_findings(target)
     if changed_only and head and tstate.get("last_sha") and tstate["last_sha"] != head:
-        changed = set((git(target, "diff", "--name-only", tstate["last_sha"], head) or "").splitlines())
+        # --relative: paths relative to the target, which may be a subfolder of the repo
+        changed = set((git(target, "diff", "--name-only", "--relative", tstate["last_sha"], head) or "").splitlines())
         findings = [f for f in findings if f.path in changed]
         say(f"{len(changed)} file(s) changed since {tstate['last_sha'][:7]}")
     elif changed_only and head and tstate.get("last_sha") == head:

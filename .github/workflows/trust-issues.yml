@@ -1,0 +1,72 @@
+# Inception: Trust Issues watches its own repo. Every push to main that touches target/ (the
+# seeded app) is scanned; fixes are proven, proven ones become PRs, and a fix it can't prove
+# rings on-call. Decisions come back through the deployed server (PUBLIC_BASE_URL) into the
+# shared ClickHouse ledger, which this job polls.
+#
+# Repository secrets: OPENAI_API_KEY, CLICKHOUSE_URL, CLICKHOUSE_PASSWORD, ELEVENLABS_API_KEY,
+# ELEVENLABS_AGENT_ID, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER,
+# ONCALL_PHONE_NUMBER, PUBLIC_BASE_URL, TRUST_WEBHOOK_TOKEN. Missing ones degrade gracefully:
+# no OpenAI key -> scripted agent; no voice settings -> decide on the dashboard.
+
+name: trust-issues
+on:
+  push:
+    branches: [main]
+    paths: ["target/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: trust-issues
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+      - name: Install Trust Issues (from this repo) and Semgrep
+        run: |
+          uv sync
+          uv tool install semgrep
+      - name: Remember what was already handled
+        uses: actions/cache@v4
+        with:
+          path: runs/watch-state.json
+          key: trust-issues-state-${{ github.run_id }}
+          restore-keys: trust-issues-state-
+      - name: Scan, prove, open PRs, call on-call if needed
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CLICKHOUSE_URL: ${{ secrets.CLICKHOUSE_URL }}
+          CLICKHOUSE_PASSWORD: ${{ secrets.CLICKHOUSE_PASSWORD }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          ELEVENLABS_AGENT_ID: ${{ secrets.ELEVENLABS_AGENT_ID }}
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_FROM_NUMBER: ${{ secrets.TWILIO_FROM_NUMBER }}
+          ONCALL_PHONE_NUMBER: ${{ secrets.ONCALL_PHONE_NUMBER }}
+          PUBLIC_BASE_URL: ${{ secrets.PUBLIC_BASE_URL }}
+          TRUST_WEBHOOK_TOKEN: ${{ secrets.TRUST_WEBHOOK_TOKEN }}
+          TRUST_CALL_VIA: twilio
+          TRUST_DECISION_TIMEOUT: "600"
+          TRUST_RUNS_DIR: runs
+        run: |
+          git config user.name "trust-issues[bot]"
+          git config user.email "trust-issues@users.noreply.github.com"
+          uv run trust-issues watch --target target --once --changed-only --open-pr
+      - name: Keep the evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trust-issues-evidence
+          path: runs/*/PR.md
+          if-no-files-found: ignore

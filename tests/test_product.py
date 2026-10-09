@@ -116,3 +116,24 @@ def test_github_remotes_parse():
     assert github_repo("git@github.com:acme/shop.git") == ("acme", "shop")
     assert github_repo("https://github.com/acme/shop") == ("acme", "shop")
     assert github_repo("/tmp/remote.git") is None
+
+
+def test_watch_changed_only_works_when_the_target_is_a_subfolder(tmp_path, monkeypatch):
+    """Inception: the target is target/ inside a bigger repo, as in this repo's own workflow."""
+    for k, v in {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.com",
+                 "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@example.com"}.items():
+        monkeypatch.setenv(k, v)
+    monkeypatch.setattr(watch_mod, "STATE_FILE", tmp_path / "state.json")
+    outer = tmp_path / "outer"
+    shutil.copytree(ROOT / "target", outer / "target", ignore=shutil.ignore_patterns("__pycache__", ".pytest_cache"))
+    sh(outer, "git", "init", "-q", "-b", "main")
+    sh(outer, "git", "add", ".")
+    sh(outer, "git", "commit", "-q", "-m", "init")
+    state = watch_mod.load_state()
+    watch_mod.cycle(outer / "target", lambda f: "held", state, changed_only=True)
+    users = outer / "target/app/users.py"
+    users.write_text(users.read_text().replace('request.args.get("name", "")', 'request.args.get("name", "").strip()'))
+    sh(outer, "git", "commit", "-qam", "touch users")
+    seen = []
+    watch_mod.cycle(outer / "target", lambda f: seen.append(f.path) or "held", state, changed_only=True)
+    assert seen == ["app/users.py"]

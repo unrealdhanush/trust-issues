@@ -1,0 +1,13 @@
+# Ship only the server: Vercel reads requirements.txt once pyproject.toml is out of the bundle.
+pyproject.toml
+uv.lock
+.venv
+.env
+.history
+runs
+target
+tests
+fixtures
+scripts
+examples
+node_modules
