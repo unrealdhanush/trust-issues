@@ -9,8 +9,18 @@ ROOT = Path(__file__).resolve().parent.parent
 SCRIPTED = ROOT / "fixtures" / "scripted"
 
 
+SERVICE_SETTINGS = [
+    "OPENAI_API_KEY", "CLICKHOUSE_URL", "CLICKHOUSE_PASSWORD", "ELEVENLABS_API_KEY",
+    "ELEVENLABS_AGENT_ID", "ELEVENLABS_PHONE_NUMBER_ID", "TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN",
+    "TWILIO_FROM_NUMBER", "ONCALL_PHONE_NUMBER", "PUBLIC_BASE_URL", "TRUST_WEBHOOK_TOKEN", "TRUST_AGENT",
+]
+
+
 @pytest.fixture(autouse=True)
-def _cli_semgrep(monkeypatch):
+def _offline(monkeypatch):
+    # Tests never touch real services, whatever the developer's .env holds.
+    for key in SERVICE_SETTINGS:
+        monkeypatch.delenv(key, raising=False)
     # The MCP server adds a few seconds per scan; the CLI runs the same rules.
     monkeypatch.setenv("TRUST_SEMGREP_MCP", "0")
 

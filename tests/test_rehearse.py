@@ -65,3 +65,25 @@ def test_opening_line_fills_the_brief():
                                 "failed_check": "the fix breaks an existing test"})
     assert "SQL injection in app/admin.py: the fix breaks an existing test" in line
     assert "{{" not in line
+
+
+def test_test_names_are_spoken_not_read():
+    from trust.loop import failed_check
+    from trust.models import Proof
+
+    assert voice.spoken_test("tests/test_admin.py::test_orders_custom_sort_expression") == \
+        "the admin test for orders custom sort expression"
+    proof = Proof(True, False, True, False, failing_tests=["tests/test_admin.py::test_orders_custom_sort_expression"])
+    line = failed_check(proof)
+    assert "::" not in line and "_" not in line and "tests/" not in line
+
+
+def test_transcript_keeps_tool_calls():
+    conv = {"transcript": [
+        {"role": "agent", "message": "Should I update that test?"},
+        {"role": "user", "message": "Yes."},
+        {"role": "agent", "message": None, "tool_calls": [
+            {"tool_name": "write_decision", "params_as_json": '{"decision": "retry"}'}]},
+    ]}
+    text = voice.transcript_text(conv)
+    assert "user: Yes." in text and 'agent: [write_decision {"decision": "retry"}]' in text

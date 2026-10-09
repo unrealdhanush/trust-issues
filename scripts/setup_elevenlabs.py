@@ -2,6 +2,8 @@
 
     PUBLIC_BASE_URL=https://<your-tunnel> uv run python scripts/setup_elevenlabs.py
     uv run python scripts/setup_elevenlabs.py --number-only   # import the Twilio number later
+    uv run python scripts/setup_elevenlabs.py --update        # push prompt/settings to the existing
+                                                              # agent, repoint tools at PUBLIC_BASE_URL
 
 Needs ELEVENLABS_API_KEY, plus TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_FROM_NUMBER to
 import the number. Prints the env lines to add to .env. Re-running creates new copies.
@@ -12,7 +14,7 @@ import sys
 import httpx
 
 from trust.config import env
-from trust.voice import FIRST_MESSAGE, PROMPT
+from trust.voice import FIRST_MESSAGE, PROMPT, TURN_TIMEOUT_SECS
 
 API = "https://api.elevenlabs.io"
 
@@ -21,11 +23,50 @@ def headers():
     return {"xi-api-key": env("ELEVENLABS_API_KEY")}
 
 
-def post(path, body):
-    r = httpx.post(f"{API}{path}", json=body, headers=headers(), timeout=30)
+def call(method, path, body=None):
+    r = httpx.request(method, f"{API}{path}", json=body, headers=headers(), timeout=30)
     if r.status_code >= 400:
-        sys.exit(f"{path} failed: {r.status_code} {r.text}")
+        sys.exit(f"{method} {path} failed: {r.status_code} {r.text}")
     return r.json()
+
+
+def post(path, body):
+    return call("POST", path, body)
+
+
+def agent_config(tool_ids):
+    return {
+        "agent": {
+            "first_message": FIRST_MESSAGE,
+            "language": "en",
+            "prompt": {"prompt": PROMPT, "tool_ids": tool_ids},
+        },
+        "turn": {"turn_timeout": TURN_TIMEOUT_SECS},
+    }
+
+
+def update():
+    """Change the existing agent in place: same agent id, same tools, new prompt and settings."""
+    agent_id = env("ELEVENLABS_AGENT_ID")
+    if not agent_id:
+        sys.exit("set ELEVENLABS_AGENT_ID")
+    base = env("PUBLIC_BASE_URL").rstrip("/")
+    current = call("GET", f"/v1/convai/agents/{agent_id}")
+    tool_ids = current["conversation_config"]["agent"]["prompt"].get("tool_ids") or []
+    for tid in tool_ids:
+        cfg = call("GET", f"/v1/convai/tools/{tid}")["tool_config"]
+        schema = cfg["api_schema"]
+        path = "/tools/" + schema["url"].rstrip("/").rsplit("/tools/", 1)[-1]
+        wanted_headers = {"x-trust-token": env("TRUST_WEBHOOK_TOKEN")} if env("TRUST_WEBHOOK_TOKEN") else {}
+        if base and (schema["url"] != base + path or (schema.get("request_headers") or {}) != wanted_headers):
+            schema["url"] = base + path
+            schema["request_headers"] = wanted_headers
+            call("PATCH", f"/v1/convai/tools/{tid}", {"tool_config": cfg})
+            print(f"repointed {cfg['name']} -> {schema['url']}")
+        else:
+            print(f"{cfg['name']} already points at {schema['url']}")
+    call("PATCH", f"/v1/convai/agents/{agent_id}", {"conversation_config": agent_config(tool_ids)})
+    print(f"updated agent {agent_id}: prompt, opening line, turn_timeout={TURN_TIMEOUT_SECS}s")
 
 
 def webhook_tool(name, description, url, properties, required):
@@ -61,6 +102,11 @@ def import_number():
 
 
 def main():
+    if "--update" in sys.argv:
+        if not env("ELEVENLABS_API_KEY"):
+            sys.exit("set ELEVENLABS_API_KEY")
+        update()
+        return
     if "--number-only" in sys.argv:
         if not env("ELEVENLABS_API_KEY"):
             sys.exit("set ELEVENLABS_API_KEY")
@@ -91,13 +137,7 @@ def main():
     )
     agent = post("/v1/convai/agents/create", {
         "name": "Trust Issues on-call",
-        "conversation_config": {
-            "agent": {
-                "first_message": FIRST_MESSAGE,
-                "language": "en",
-                "prompt": {"prompt": PROMPT, "tool_ids": [read_id, write_id]},
-            },
-        },
+        "conversation_config": agent_config([read_id, write_id]),
     })
     print(f"ELEVENLABS_AGENT_ID={agent['agent_id']}")
     import_number()
