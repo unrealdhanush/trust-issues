@@ -10,12 +10,15 @@ Build brief (timeline, demo script, cut order, pre-flight): https://claude.ai/co
 
 1. **Detect.** The Semgrep MCP server scans the target repo and returns one SQL injection finding.
 2. **Patch.** An OpenAI agent writes the fix.
-3. **Prove.** The fix isn't done until all three checks pass:
-   - the generated exploit test succeeds against the original code and is blocked on the patch
+3. **Prove.** The fix isn't done until all six checks pass:
+   - the generated exploit test reproduces the vulnerability on the original code
+   - the same exploit is blocked on the patch
    - a Semgrep re-scan comes back clean
-   - the existing test suite still passes
+   - the existing test suite has no new failures
+   - verification tests and configuration remain protected
+   - the patch stays within the allowed scope
 
-   The agent may not edit tests.
+   The agent may not edit tests unless on-call explicitly unlocks the failing test files for a retry.
 4. **Escalate.** After two failed proofs, an ElevenLabs voice agent calls on-call through Twilio. It briefs the failed check, answers questions from the ledger, and records one decision: `ship`, `hold` or `retry` with a hint.
 
 ## Ledger (ClickHouse)
