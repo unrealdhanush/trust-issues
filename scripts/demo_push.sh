@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Stage the merge/push demo: a clean service repo, then "pushes" that bring each seeded bug back.
 #
+#   scripts/demo_push.sh auto [--clear-ledger]    the whole demo, hands-free: setup, watch, both pushes
 #   scripts/demo_push.sh setup [--clear-ledger]   clean repo (both bugs fixed) + a local origin
 #   scripts/demo_push.sh watch                    terminal 2: Trust Issues watching new commits
 #   scripts/demo_push.sh push users               bug 1 returns: proven, PR branch, nobody called
@@ -9,8 +10,8 @@
 #   scripts/demo_push.sh reset [--clear-ledger]   same as setup
 #
 # DEMO_DIR (default ~/trust-issues-demo) holds the repo; DEMO_DIR.git is its origin.
-# EVERY (default 15s) is the watch interval. --clear-ledger removes earlier rows for these two
-# fixes, so the dashboard starts empty for them.
+# EVERY (default 15s) is the watch interval; PAUSE (default 6) the seconds between narrated beats.
+# --clear-ledger removes earlier rows for these two fixes, so the dashboard starts empty for them.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -78,6 +79,37 @@ watch() {
   exec uv run --project "$ROOT" trust-issues watch --target "$DEMO" --changed-only --open-pr --every "$EVERY" "$@"
 }
 
+handled() {  # has the watcher reached an outcome for this file's fix yet?
+  ti_python "
+import json, sys
+from pathlib import Path
+from trust.watch import STATE_FILE
+s = json.loads(STATE_FILE.read_text()) if STATE_FILE.exists() else {'targets': {}}
+h = s['targets'].get(str(Path('$DEMO').resolve()), {}).get('handled', {})
+sys.exit(0 if any(v.get('file') == '$1' for v in h.values()) else 1)"
+}
+
+auto() {
+  local pause="${PAUSE:-6}"
+  setup "$@"
+  uv run --project "$ROOT" trust-issues watch --target "$DEMO" --changed-only --open-pr --every 5s &
+  WATCHER=$!
+  trap 'kill "${WATCHER:-}" 2>/dev/null || true' EXIT
+  sleep 10  # the watcher's first pass records the clean commit
+  say "== A teammate pushes a refactor of user search =="
+  sleep "$pause"
+  push users
+  until handled app/users.py; do sleep 2; done
+  sleep "$pause"
+  say "== A teammate adds a power-user sort to the admin report =="
+  sleep "$pause"
+  push admin
+  until handled app/admin.py; do sleep 2; done
+  sleep 2
+  say "== Done =="
+  status
+}
+
 status() {
   git -C "$DEMO" log --oneline --format='  %h %an: %s'
   say "branches on origin:"
@@ -85,9 +117,10 @@ status() {
 }
 
 case "${1:-}" in
+  auto) shift; auto "$@" ;;
   setup|reset) shift; setup "$@" ;;
   push) shift; push "$@" ;;
   watch) shift; watch "$@" ;;
   status) status ;;
-  *) sed -n '2,13p' "$0"; exit 1 ;;
+  *) sed -n '2,14p' "$0"; exit 1 ;;
 esac

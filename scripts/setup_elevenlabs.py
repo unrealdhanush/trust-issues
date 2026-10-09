@@ -14,7 +14,7 @@ import sys
 import httpx
 
 from trust.config import env
-from trust.voice import END_CALL_TOOL, FIRST_MESSAGE, PROMPT, TURN_TIMEOUT_SECS
+from trust.voice import END_CALL_TOOL, FIRST_MESSAGE, LISTENING, PROMPT, TURN_TIMEOUT_SECS
 
 API = "https://api.elevenlabs.io"
 
@@ -42,7 +42,9 @@ def agent_config(tool_ids):
             "prompt": {"prompt": PROMPT, "tool_ids": tool_ids,
                        "built_in_tools": {"end_call": END_CALL_TOOL}},
         },
-        "turn": {"turn_timeout": TURN_TIMEOUT_SECS},
+        "turn": {"turn_timeout": TURN_TIMEOUT_SECS, **LISTENING["turn"]},
+        "vad": LISTENING["vad"],
+        "asr": LISTENING["asr"],
     }
 
 
@@ -67,7 +69,8 @@ def update():
         else:
             print(f"{cfg['name']} already points at {schema['url']}")
     call("PATCH", f"/v1/convai/agents/{agent_id}", {"conversation_config": agent_config(tool_ids)})
-    print(f"updated agent {agent_id}: prompt, opening line, end_call, turn_timeout={TURN_TIMEOUT_SECS}s")
+    print(f"updated agent {agent_id}: prompt, opening line, end_call, listening settings, "
+          f"turn_timeout={TURN_TIMEOUT_SECS}s")
 
 
 def webhook_tool(name, description, url, properties, required):

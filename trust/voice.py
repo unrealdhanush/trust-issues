@@ -31,6 +31,11 @@ How to speak:
   "app/admin.py", after the first mention.
 - If the engineer goes quiet, they are probably busy. Wait. Check in at most once, briefly
   ("Take your time, I'm here."), then keep waiting without repeating the question.
+- A fragment, a filler or a lone "okay" is not an answer, and the line may be noisy. Don't react
+  to it; wait for a full sentence. If you truly can't tell what they said, ask once, briefly:
+  "Sorry, I didn't catch that."
+- No sympathy filler ("I hear you", "I understand your concern", "I know you wouldn't want").
+  Answer the question or ask yours.
 
 How to stay honest:
 - State only facts listed above or returned by the read_ledger tool. If you're asked something
@@ -58,6 +63,16 @@ FIRST_MESSAGE = (
     "{{failed_check}}. Do you want me to ship it, hold it, or retry with a hint?"
 )
 
+
+# Turn-taking for a phone call in a noisy room: wait for a real sentence, ignore voices in the
+# background, don't let "okay" or "mm" cut the agent off, and listen hard for the decision words.
+LISTENING = {
+    "turn": {"turn_eagerness": "patient", "speculative_turn": False,
+             "interruption_ignore_terms": ["okay", "ok", "mm", "mhm", "uh", "um", "yeah", "yes",
+                                           "right", "hmm", "uh huh"]},
+    "vad": {"background_voice_detection": True},
+    "asr": {"keywords": ["retry", "ship", "hold", "hint", "admin sort test", "Trust Issues"]},
+}
 
 # ElevenLabs' built-in hang-up tool; without it the agent lingers after the decision.
 END_CALL_TOOL = {
