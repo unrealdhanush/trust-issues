@@ -107,3 +107,28 @@ test('articulated leaves retain volume, teeth remain visible, and the insect dis
   assert.equal(lines.length,11);for(const [,x,y,tx,ty] of lines) assert(Math.hypot(Number(tx)-Number(x),Number(ty)-Number(y))>10,'teeth are not flattened with the leaves');
   h.timers.shift()();assert.equal(h.run('trapAperture'),.14);
 });
+
+test('diffs are coloured line by line and stay escaped', ()=>{
+  const h=harness();
+  const out=h.run(`diffHtml("--- a/app/x.py\\n+++ b/app/x.py\\n@@ -1 +1 @@\\n-rows = q + name\\n+rows = q(\\"?\\", <name>)\\n ctx\\n")`);
+  assert.match(out,/<span class="d-file">--- a\/app\/x.py<\/span>/);
+  assert.match(out,/<span class="d-hunk">@@ -1 \+1 @@<\/span>/);
+  assert.match(out,/<span class="d-del">-rows = q \+ name<\/span>/);
+  assert.match(out,/<span class="d-add">\+rows = q\(&quot;\?&quot;, &lt;name&gt;\)<\/span>/);
+  assert.match(out,/<span class="d-ctx"> ctx<\/span>/);
+});
+
+test('call transcripts read as a conversation with tool steps', ()=>{
+  const h=harness();
+  const t=['agent: Hi, this is Trust Issues.','user: Which test broke?','agent: [read_ledger {"fix_id": "f1"}]',
+    'agent: [calm] The admin sort test. Should I update it?','user: Yes. <b>now</b>',
+    'agent: [write_decision {"decision": "retry", "fix_id": "f1", "hint": "update the admin sort test"}]','agent: [end_call {"reason": "done"}]'].join('\n');
+  const out=h.run(`transcriptHtml(${JSON.stringify(t)})`);
+  assert.match(out,/class="turn agent"><span class="who">Agent<\/span><p>Hi, this is Trust Issues.<\/p>/);
+  assert.match(out,/class="turn user"><span class="who">On-call<\/span><p>Which test broke\?<\/p>/);
+  assert.match(out,/↳ <b>Looked up the ledger<\/b>/);
+  assert.match(out,/<p>The admin sort test. Should I update it\?<\/p>/, 'voice tags like [calm] are dropped');
+  assert.match(out,/Recorded decision: retry · “update the admin sort test”/);
+  assert.match(out,/↳ <b>Ended the call<\/b>/);
+  assert.match(out,/Yes. &lt;b&gt;now&lt;\/b&gt;/, 'speech is escaped');
+});

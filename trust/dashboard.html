@@ -28,6 +28,8 @@ nav { display:grid; gap:6px; } .nav { display:flex; align-items:center; gap:10px
 .proof-heading { display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:12px; } h3 { margin:0; font-size:13px; font-weight:600; } .proof-heading span { font-size:10px; color:var(--muted); }
 .gates { display:grid; grid-template-columns:1fr 1fr; gap:9px; } .gate { display:flex; gap:10px; border:1px solid var(--line); border-radius:10px; padding:13px 12px; min-width:0; } .gate-icon { flex:none; display:grid; place-items:center; width:20px; height:20px; border-radius:50%; background:var(--ok-bg); color:var(--ok); font-size:12px; } .gate.fail .gate-icon { color:var(--bad); background:var(--bad-bg); } .gate.unknown .gate-icon { color:var(--muted); background:#25312a; } .gate strong { display:block; font-size:11px; font-weight:550; } .gate small { display:block; color:var(--muted); font-size:10px; margin-top:3px; }
 .reasons { margin-top:16px; background:#151f18; padding:12px; border-radius:6px; color:var(--muted); font-size:11px; } .reasons p { margin:4px 0; } .reasons ul { margin:5px 0; padding-left:18px; } details { margin-top:14px; border-top:1px solid var(--line); padding-top:12px; } summary { cursor:pointer; color:var(--accent); font-size:11px; } pre { white-space:pre-wrap; overflow-wrap:anywhere; background:#0b100d; border-radius:6px; padding:12px; font:11px/1.7 ui-monospace,SFMono-Regular,monospace; max-height:320px; overflow:auto; }
+pre.diff { padding:8px 0; } pre.diff span { display:block; padding:0 12px; min-height:1.7em; } .d-add { color:var(--ok); background:var(--ok-bg); } .d-del { color:var(--bad); background:var(--bad-bg); } .d-hunk { color:var(--warn); } .d-file { color:var(--ink); font-weight:600; } .d-ctx { color:var(--muted); }
+.call-log { margin-top:10px; display:flex; flex-direction:column; gap:8px; max-height:420px; overflow:auto; } .turn { display:grid; grid-template-columns:72px 1fr; gap:10px; font-size:12px; line-height:1.55; } .turn .who { font:10px ui-monospace,SFMono-Regular,monospace; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); padding-top:2px; } .turn.agent .who { color:var(--accent); } .turn p { margin:0; color:var(--ink); } .turn.user p { color:var(--warn); } .tool-step { margin-left:82px; font-size:11px; color:var(--muted); border-left:2px solid var(--line); padding:2px 0 2px 10px; } .tool-step b { color:var(--ok); font-weight:500; } .call-hint { margin:8px 0 0; font-size:12px; color:var(--ink); }
 #call-section { border-top:1px solid #4b402b; background:#1b1c13; padding:20px 24px; } #call-section h3 { color:#e9c583; margin-bottom:10px; } .call { font-size:11px; overflow-wrap:anywhere; } .call p { color:var(--muted); margin:8px 0 14px; } .actions { display:flex; flex-wrap:wrap; gap:8px; } .actions input { width:100%; border:1px solid #38513f; background:var(--panel); padding:11px; border-radius:6px; min-width:0; } .actions button { border:1px solid #38513f; border-radius:6px; padding:9px 12px; background:var(--panel); color:var(--ink); font-size:11px; min-height:38px; } .actions button.primary { color:#0b100d; background:var(--accent); border-color:var(--accent); }
 .empty { padding:32px 18px; color:var(--muted); font-size:11px; text-align:center; } .empty strong { display:block; color:var(--ink); margin-bottom:6px; font-weight:550; } .empty-inspector { padding:54px 30px; text-align:center; max-width:560px; margin:auto; } .empty-inspector h2 { font-size:20px; font-weight:550; letter-spacing:-.5px; margin:18px 0 8px; } .empty-inspector p { color:var(--muted); font-size:12px; max-width:320px; margin:0 auto 22px; } .empty-shield { width:50px; height:56px; color:#6e9f7a; } .empty-inspector code { display:inline-block; border:1px solid var(--line); border-radius:6px; padding:9px 18px; background:#151f18; font-size:12px; } .empty-inspector .gates { text-align:left; margin-top:34px; opacity:.85; } footer { font-size:10px; color:var(--muted); margin-top:16px; display:flex; justify-content:space-between; gap:12px; }
 @media(max-width:1100px) { .shell { grid-template-columns:170px minmax(0,1fr); } .product-main { padding:24px 20px; } .workspace { grid-template-columns:230px minmax(0,1fr); } .gates { grid-template-columns:1fr; } }
@@ -133,6 +135,35 @@ a { color:inherit; } .home-link { display:block; color:var(--muted); text-decora
 <script>
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+function diffHtml(text) {
+  return String(text || "").replace(/\n$/, "").split("\n").map((line) => {
+    const cls = line.startsWith("+++") || line.startsWith("---") ? "d-file" : line.startsWith("@@") ? "d-hunk"
+      : line.startsWith("+") ? "d-add" : line.startsWith("-") ? "d-del" : "d-ctx";
+    return `<span class="${cls}">${esc(line)}</span>`;
+  }).join("");
+}
+function toolStep(name, params) {
+  let p = {};
+  try { p = JSON.parse(params || "{}"); } catch (e) { p = {}; }
+  if (name === "read_ledger") return "Looked up the ledger";
+  if (name === "write_decision") return `Recorded decision: ${esc(p.decision || "?")}${p.hint ? ` · “${esc(p.hint)}”` : ""}`;
+  if (name === "end_call") return "Ended the call";
+  return esc(name);
+}
+function transcriptHtml(text) {
+  // Lines are "agent: words", "user: words" or "agent: [tool {json}]" (trust/voice.py transcript_text).
+  return String(text || "").split("\n").filter(Boolean).map((line) => {
+    const m = line.match(/^(agent|user):\s?(.*)$/);
+    if (!m) return `<div class="turn"><span class="who"></span><p>${esc(line)}</p></div>`;
+    const [, role, rest] = m;
+    const tool = rest.match(/^\[(\w+)(?:\s+(\{.*\}))?\]$/);
+    if (tool && (tool[2] || ["read_ledger", "write_decision", "end_call"].includes(tool[1]))) {
+      return `<div class="tool-step">↳ <b>${toolStep(tool[1], tool[2])}</b></div>`;
+    }
+    const words = rest.replace(/^\[[a-z ]+\]\s*/i, "");  // drop voice-style tags such as [calm]
+    return `<div class="turn ${role}"><span class="who">${role === "agent" ? "Agent" : "On-call"}</span><p>${esc(words)}</p></div>`;
+  }).join("");
+}
 let agentId = "";
 let widgetFor = null;
 let ledgerRows = [];
@@ -194,12 +225,12 @@ function renderFix(rows) {
   const fn = JSON.parse(first.evidence || "{}").function || "";
   const reasons = (ev.reasons || []).map((reason) => `<li>${esc(reason)}</li>`).join("");
   const preexisting = (ev.semgrep?.preexisting || []).map(esc).join(", ");
-  const escalations = rows.filter((row) => row.verdict === "escalated").map((row) => `<details><summary>On-call · attempt ${esc(row.attempt)} · ${esc(row.decision || "awaiting decision")}</summary>${row.hint ? `<p>Hint: ${esc(row.hint)}</p>` : ""}${row.transcript ? `<pre>${esc(row.transcript)}</pre>` : `<p>No transcript recorded.</p>`}</details>`).join("");
+  const escalations = rows.filter((row) => row.verdict === "escalated").map((row) => `<details${row.transcript ? " open" : ""}><summary>On-call call · attempt ${esc(row.attempt)} · ${esc(row.decision || "awaiting decision")}</summary>${row.hint ? `<p class="call-hint">Hint: “${esc(row.hint)}”</p>` : ""}${row.transcript ? `<div class="call-log">${transcriptHtml(row.transcript)}</div>` : `<p>${row.decision ? "Decided on the dashboard; no call transcript." : "Waiting on on-call."}</p>`}</details>`).join("");
   return `<div class="inspector-head"><div class="inspector-title"><span class="eyebrow">Evidence inspector</span><span class="status s-${cls}">${label}</span></div><h2>${esc(first.file)}</h2><div class="fix-context">${esc(first.vuln_class || first.rule_id)}${fn ? ` · ${esc(fn)}` : ""} · ${esc(first.fix_id)}</div></div>
     <div class="evidence-body"><div class="eyebrow">Attempt history</div><div class="attempts">${attempts.map((a) => `<button class="attempt-button ${a === r ? "active" : ""}" data-attempt="${esc(a.attempt)}" aria-pressed="${a === r}">Attempt ${esc(a.attempt)} · ${esc(a.verdict)}</button>`).join("") || '<span class="subtitle">No proof attempt recorded.</span>'}</div>
     <div class="proof-heading"><h3>Six proof gates</h3><span>${r ? `${gateResults(r).filter((v) => v === true).length} of 6 passed` : "Awaiting evidence"}</span></div>${renderGates(r)}
     <div class="reasons">${reasons ? `<strong>What needs attention</strong><ul>${reasons}</ul>` : `<p>${r?.verdict === "proven" ? "All six checks hold for this attempt." : "Review the recorded checks before making a decision."}</p>`}${preexisting ? `<p>Findings that predate this patch: ${preexisting}</p>` : ""}${(r?.failing_tests || []).length ? `<p>Failing tests: ${r.failing_tests.map(esc).join(", ")}</p>` : ""}</div>
-    ${ev.diff ? `<details><summary>Patch diff</summary><pre>${esc(ev.diff)}</pre></details>` : ""}${escalations}</div>`;
+    ${ev.diff ? `<details><summary>Patch diff</summary><pre class="diff">${diffHtml(ev.diff)}</pre></details>` : ""}${escalations}</div>`;
 }
 function visibleFixes() {
   return group(ledgerRows).reverse().filter((g) => currentView !== "decisions" || status(g)[0] === "waiting");
