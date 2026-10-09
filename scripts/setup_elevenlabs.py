@@ -1,6 +1,7 @@
 """One-time ElevenLabs setup: two webhook tools, the on-call agent, and the Twilio number.
 
     PUBLIC_BASE_URL=https://<your-tunnel> uv run python scripts/setup_elevenlabs.py
+    uv run python scripts/setup_elevenlabs.py --number-only   # import the Twilio number later
 
 Needs ELEVENLABS_API_KEY, plus TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_FROM_NUMBER to
 import the number. Prints the env lines to add to .env. Re-running creates new copies.
@@ -45,7 +46,26 @@ def webhook_tool(name, description, url, properties, required):
     }})["id"]
 
 
+def import_number():
+    if not all(env(k) for k in ("TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_FROM_NUMBER")):
+        print("# Twilio settings missing: add them to .env, then run with --number-only")
+        return
+    number = post("/v1/convai/phone-numbers", {
+        "provider": "twilio",
+        "label": "Trust Issues on-call",
+        "phone_number": env("TWILIO_FROM_NUMBER"),
+        "sid": env("TWILIO_ACCOUNT_SID"),
+        "token": env("TWILIO_AUTH_TOKEN"),
+    })
+    print(f"ELEVENLABS_PHONE_NUMBER_ID={number['phone_number_id']}")
+
+
 def main():
+    if "--number-only" in sys.argv:
+        if not env("ELEVENLABS_API_KEY"):
+            sys.exit("set ELEVENLABS_API_KEY")
+        import_number()
+        return
     base = env("PUBLIC_BASE_URL").rstrip("/")
     if not env("ELEVENLABS_API_KEY") or not base:
         sys.exit("set ELEVENLABS_API_KEY and PUBLIC_BASE_URL (your tunnel to `trust serve`)")
@@ -80,18 +100,7 @@ def main():
         },
     })
     print(f"ELEVENLABS_AGENT_ID={agent['agent_id']}")
-
-    if all(env(k) for k in ("TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_FROM_NUMBER")):
-        number = post("/v1/convai/phone-numbers", {
-            "provider": "twilio",
-            "label": "Trust Issues on-call",
-            "phone_number": env("TWILIO_FROM_NUMBER"),
-            "sid": env("TWILIO_ACCOUNT_SID"),
-            "token": env("TWILIO_AUTH_TOKEN"),
-        })
-        print(f"ELEVENLABS_PHONE_NUMBER_ID={number['phone_number_id']}")
-    else:
-        print("# Twilio settings missing: import the number in the ElevenLabs dashboard instead")
+    import_number()
 
 
 if __name__ == "__main__":
