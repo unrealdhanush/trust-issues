@@ -160,5 +160,6 @@ test('decisions tab keeps every human decision, waiting ones first', async()=>{
   assert.equal(h.get('#queue-count').textContent,'3 fixes');assert.doesNotMatch(q,/quiet.py/);
   assert(q.indexOf('live.py')<q.indexOf('new.py')&&q.indexOf('new.py')<q.indexOf('old.py'),'waiting first, then newest decision');
   assert.match(q,/Waiting on on-call/);assert.match(q,/Decided: ship/);assert.match(q,/Decided: retry · “update the sort test”/);
-  assert.equal(h.get('#decision-count').textContent,1,'the badge still counts only what is waiting');
+  assert.equal(h.get('#decision-count').textContent,3,'the badge counts every decision on the tab');
+  assert.equal(h.get('#count-waiting').textContent,1,'the overview still shows what is waiting');
 });
