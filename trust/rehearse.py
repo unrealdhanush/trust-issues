@@ -108,7 +108,7 @@ def rehearse(timeout=180, keep=False, force=False):
         if row.get("transcript"):
             print("\n" + row["transcript"] + "\n")
         elif voice.configured():
-            say("no transcript came back; check the call in the ElevenLabs dashboard")
+            say("no transcript: the call didn't connect, or ElevenLabs is still processing it")
         return row
     finally:
         if keep:

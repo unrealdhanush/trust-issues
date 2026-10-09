@@ -67,3 +67,29 @@ def test_token_is_enforced_when_set(client, monkeypatch):
     monkeypatch.setenv("TRUST_WEBHOOK_TOKEN", "s3cret")
     assert http.post("/tools/read_ledger", json={"fix_id": "x"}).status_code == 401
     assert http.post("/tools/read_ledger", json={"fix_id": "x"}, headers={"x-trust-token": "s3cret"}).status_code == 200
+
+
+def test_clickhouse_ledger_retries_once_on_a_fresh_connection(monkeypatch):
+    from trust.ledger import ClickHouseLedger
+
+    calls = {"connect": 0, "query": 0}
+
+    class FlakyClient:
+        def query(self, *a, **k):
+            calls["query"] += 1
+            if calls["query"] == 1:
+                raise ConnectionResetError("stale pooled connection")
+            class Res:
+                def named_results(self):
+                    return iter([])
+            return Res()
+
+    def connect(self):
+        calls["connect"] += 1
+        return FlakyClient()
+
+    monkeypatch.setattr(ClickHouseLedger, "_connect", connect)
+    monkeypatch.setattr("trust.ledger.time.sleep", lambda s: None)
+    led = ClickHouseLedger("https://example.clickhouse.cloud:8443", "pw")
+    assert led.rows("x") == []
+    assert calls == {"connect": 2, "query": 2}
