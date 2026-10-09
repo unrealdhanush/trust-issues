@@ -225,6 +225,10 @@ async function refresh() {
     const response = await fetch("/api/rows");
     if (!response.ok) throw new Error("Unable to read ledger");
     const { ledger, rows } = await response.json();
+    const pendingKey = (g) => `${g[0].fix_id}:${g.filter((r) => r.verdict === "escalated" && !r.decision).pop()?.attempt}`;
+    const previousPending = new Set(group(ledgerRows).filter((g) => status(g)[0] === "waiting").map(pendingKey));
+    const newEscalation = group(rows).reverse().find((g) => status(g)[0] === "waiting" && !previousPending.has(pendingKey(g)));
+    if (newEscalation && !widgetFor) { selectedFix = newEscalation[0].fix_id; selectedAttempt = null; }
     ledgerRows = rows;
     $("#meta").textContent = `${ledger} ledger · ${rows.length} rows · ${new Date().toLocaleTimeString()}`;
     $("#connection").classList.add("connected"); $("#connection-label").textContent = "Ledger connected";

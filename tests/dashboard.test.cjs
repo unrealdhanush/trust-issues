@@ -33,6 +33,8 @@ test('selection, attempt history, escaped evidence, and stable polling',async()=
   const writes=h.get('#evidence').writes;await h.refresh();assert.equal(h.get('#evidence').writes,writes,'polling preserves expanded details');
   h.buttons('[data-attempt]')[0].onclick();assert.match(h.get('#evidence').innerHTML,/5 of 6 passed/);assert.match(h.get('#evidence').innerHTML,/gate fail/);
   h.buttons('[data-fix-index]')[1].onclick();await h.refresh();assert.match(h.get('#evidence').innerHTML,/app\/users.py/);
+  h.setRows([row(),row('new',{verdict:'failed'}),row('new',{verdict:'escalated',decision:''})]);await h.refresh();
+  assert.match(h.get('#evidence').innerHTML,/app\/new.py/,'a new escalation gets attention');
 });
 test('pending decisions filter, selected fix payloads, and hint persistence',async()=>{
   const h=harness();h.setRows([row(),row('admin',{verdict:'failed'}),row('admin',{attempt:2,verdict:'escalated',decision:''})]);await h.refresh();
