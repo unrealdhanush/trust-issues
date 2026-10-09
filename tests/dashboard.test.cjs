@@ -160,6 +160,14 @@ test('decisions tab keeps every human decision, waiting ones first', async()=>{
   assert.equal(h.get('#queue-count').textContent,'3 fixes');assert.doesNotMatch(q,/quiet.py/);
   assert(q.indexOf('live.py')<q.indexOf('new.py')&&q.indexOf('new.py')<q.indexOf('old.py'),'waiting first, then newest decision');
   assert.match(q,/Waiting on on-call/);assert.match(q,/Decided: ship/);assert.match(q,/Decided: retry · “update the sort test”/);
-  assert.equal(h.get('#decision-count').textContent,3,'the badge counts every decision on the tab');
+  assert.equal(h.get('#decision-count').textContent,'1 pending','red while on-call owes a decision');
   assert.equal(h.get('#count-waiting').textContent,1,'the overview still shows what is waiting');
+});
+
+test('decisions badge says complete once nothing is waiting, and is blank with no decisions', async()=>{
+  const h=harness();h.setRows([row('quiet')]);await h.refresh();
+  assert.equal(h.get('#decision-count').textContent,'');
+  h.setRows([row('a',{verdict:'failed'}),row('a',{attempt:2,verdict:'escalated',decision:'retry'}),
+             row('b',{verdict:'failed'}),row('b',{attempt:2,verdict:'escalated',decision:'hold'})]);await h.refresh();
+  assert.equal(h.get('#decision-count').textContent,'2 complete');
 });
