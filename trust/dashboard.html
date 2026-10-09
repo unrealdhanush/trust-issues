@@ -41,6 +41,7 @@
   th, td { text-align: left; padding: 7px 8px; border-top: 1px solid var(--line); vertical-align: top; white-space: nowrap; }
   th { color: var(--muted); font-weight: 500; font-size: 12px; border-top: 0; }
   td.why { white-space: normal; color: var(--muted); min-width: 260px; }
+  .old { font-size: 12px; opacity: .8; }
   .pill { display: inline-block; min-width: 46px; text-align: center; padding: 1px 6px; border-radius: 6px; font-size: 12px; font-weight: 600; }
   .y { color: var(--ok); background: var(--ok-bg); }
   .n { color: var(--bad); background: var(--bad-bg); }
@@ -107,14 +108,17 @@ function status(rows) {
 function renderFix(rows) {
   const first = rows[0];
   const [cls, label] = status(rows);
+  const fn = JSON.parse(first.evidence || "{}").function || "";
   const body = rows.map((r) => {
     const ev = JSON.parse(r.evidence || "{}");
     if (r.verdict === "escalated") {
       const decided = r.decision ? `<strong>${esc(r.decision)}</strong>${r.hint ? ` · “${esc(r.hint)}”` : ""}` : "ringing on-call…";
       const t = r.transcript ? `<details><summary>call transcript</summary><pre>${esc(r.transcript)}</pre></details>` : "";
-      return `<tr><td>#${r.attempt}</td><td colspan="5"><span class="status s-escalated">escalated</span></td><td class="why">${decided}${t}</td></tr>`;
+      return `<tr><td>#${r.attempt}</td><td colspan="6"><span class="status s-escalated">escalated</span></td><td class="why">${decided}${t}</td></tr>`;
     }
-    const why = (ev.reasons || []).map(esc).join("<br>") || (r.verdict === "proven" ? "all checks hold" : "");
+    const scan = ev.semgrep || {};
+    const old = (scan.preexisting || []).length ? `<br><span class="old">predates the patch: ${scan.preexisting.map(esc).join(", ")}</span>` : "";
+    const why = ((ev.reasons || []).map(esc).join("<br>") || (r.verdict === "proven" ? "all checks hold" : "")) + old;
     const diff = ev.diff ? `<details><summary>diff</summary><pre>${esc(ev.diff)}</pre></details>` : "";
     return `<tr>
       <td>#${r.attempt}</td>
@@ -123,13 +127,14 @@ function renderFix(rows) {
       <td>${pill(r.semgrep_clear, "clean", "flagged")}</td>
       <td>${pill(r.suite_pass)}</td>
       <td>${pill(!(ev.tamper || []).length, "clean", "tamper")}</td>
+      <td>${pill(r.scope_clean !== false, "tight", "sprawl")}</td>
       <td class="why">${why}${diff}</td></tr>`;
   }).join("");
   return `<div class="card fix">
-    <div class="fix-head"><div><code>${esc(first.file)}</code> · ${esc(first.rule_id.split(".").pop())}</div>
+    <div class="fix-head"><div><code>${esc(first.file)}</code>${fn ? ` · <code>${esc(fn)}</code>` : ""} · ${esc(first.rule_id.split(".").pop())}</div>
     <span class="status s-${cls}">${label}</span></div>
     <div class="table-wrap"><table>
-      <tr><th>Try</th><th>Exploit on original</th><th>Exploit on patch</th><th>Semgrep</th><th>Suite</th><th>Guard</th><th>Evidence</th></tr>
+      <tr><th>Try</th><th>Exploit on original</th><th>Exploit on patch</th><th>Semgrep</th><th>Suite</th><th>Guard</th><th>Scope</th><th>Evidence</th></tr>
       ${body}
     </table></div></div>`;
 }

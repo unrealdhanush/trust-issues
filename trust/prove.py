@@ -2,9 +2,11 @@
 
 1. the exploit test lands on the original code (fails with an AssertionError)
 2. the same exploit test is blocked on the patched code (passes)
-3. a Semgrep re-scan of the patched code is clean for this finding
-4. the existing test suite still passes
+3. a Semgrep re-scan finds nothing left in the vulnerable function and no new security
+   finding anywhere the patch touched (findings that predate the patch are recorded, not failed)
+4. the existing test suite has no new failures compared with the original code
 5. the agent did not touch tests, scan config or the harness (see guard.py)
+6. the patch stays in scope: the vulnerable function, nothing else (see scope.py)
 """
 
 import difflib
@@ -14,9 +16,10 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from collections import Counter
 from pathlib import Path
 
-from . import guard, semgrep
+from . import code, guard, scope, semgrep
 from .config import ROOT
 from .models import Finding, Patch, Proof
 
@@ -84,34 +87,74 @@ def exploit_outcome(workspace, exploit_src):
 
 
 def run_suite(workspace):
+    """(tests ran, failing node ids, probe record)."""
     rec = run_pytest(workspace, ["--ignore", EXPLOIT_FILE])
     failing = sorted({r["nodeid"] for r in rec["results"] if r["outcome"] == "failed"})
     ran = any(r["when"] == "call" for r in rec["results"])
-    return rec["exitstatus"] == 0 and ran and not failing, failing, rec
+    return ran, failing, rec
 
 
-def semgrep_check(orig, patched, finding: Finding, changed_paths, cache=None):
-    """Clear when the finding's file has no SQLi result and no other changed file gained one."""
+def describe(result, root):
+    rel = Path(result["path"]).resolve().relative_to(Path(root).resolve()).as_posix()
+    return f"{semgrep.rule_short(result)} {rel}:{result['start']['line']}"
+
+
+def target_span(root, finding: Finding):
+    path = Path(root) / finding.path
+    if not path.exists():
+        return None
+    return code.function_spans(path.read_text()).get(finding.function)
+
+
+def findings_delta(orig, patched, finding: Finding, changed_paths, cache=None):
+    """Sort every finding on the patched code into unfixed, introduced or pre-existing.
+
+    unfixed:      a SQLi finding still inside the vulnerable function
+    pre-existing: matches a finding on the original code (rule + matched code, not line number)
+    introduced:   matches nothing on the original code; fails the proof if security-relevant
+    """
     cache = {} if cache is None else cache
+    paths = sorted({finding.path, *[p for p in changed_paths
+                                     if p.endswith(".py") and not guard.is_protected(p)]})
 
-    def counts(root, rel_paths):
-        files = [Path(root) / p for p in rel_paths if (Path(root) / p).exists()]
-        results, engine = semgrep.scan(files)
-        out = {}
-        for r in filter(semgrep.is_sqli, results):
-            rel = Path(r["path"]).resolve().relative_to(Path(root).resolve()).as_posix()
-            out.setdefault(rel, []).append(f'{r["check_id"].rsplit(".", 1)[-1]}:{r["start"]["line"]}')
-        return out, engine
+    def scan(root):
+        files = [Path(root) / p for p in paths if (Path(root) / p).exists()]
+        return semgrep.scan(files)
 
-    paths = sorted({finding.path, *[p for p in changed_paths if p.endswith(".py") and not guard.is_protected(p)]})
     key = tuple(paths)
     if key not in cache:
-        cache[key] = counts(orig, paths)[0]
+        cache[key] = scan(orig)[0]
     before = cache[key]
-    after, engine = counts(patched, paths)
-    regressions = {p: hits for p, hits in after.items() if p != finding.path and len(hits) > len(before.get(p, []))}
-    clear = not after.get(finding.path) and not regressions
-    return clear, {"engine": engine, "remaining": after, "regressions": regressions}
+    after, engine = scan(patched)
+
+    span = target_span(orig, finding)
+    baseline, fixed = Counter(), []
+    for r in before:
+        rel = Path(r["path"]).resolve().relative_to(Path(orig).resolve()).as_posix()
+        if rel == finding.path and span and span[0] <= r["start"]["line"] <= span[1] and semgrep.is_sqli(r):
+            fixed.append(describe(r, orig))  # the bug we're fixing can't count as pre-existing
+        else:
+            baseline[semgrep.fingerprint(r, orig)] += 1
+
+    span = target_span(patched, finding)
+    unfixed, introduced, preexisting, notes = [], [], [], []
+    for r in after:
+        rel = Path(r["path"]).resolve().relative_to(Path(patched).resolve()).as_posix()
+        fp = semgrep.fingerprint(r, patched)
+        if rel == finding.path and span and span[0] <= r["start"]["line"] <= span[1] and semgrep.is_sqli(r):
+            unfixed.append(describe(r, patched))
+        elif baseline[fp] > 0:
+            baseline[fp] -= 1
+            preexisting.append(describe(r, patched))
+        elif semgrep.is_security(r):
+            introduced.append(describe(r, patched))
+        else:
+            notes.append(describe(r, patched))
+    clear = not unfixed and not introduced
+    return clear, {
+        "engine": engine, "targeted": fixed, "unfixed": unfixed, "introduced": introduced,
+        "preexisting": preexisting, "notes": notes,
+    }
 
 
 def unified_diff(orig, patched):
@@ -140,8 +183,8 @@ class Harness:
     def baseline(self):
         """The suite must be green before we judge anything against it."""
         if self._baseline is None:
-            ok, failing, _ = run_suite(self.original)
-            self._baseline = (ok, failing)
+            ran, failing, _ = run_suite(self.original)
+            self._baseline = (ran, failing)
         return self._baseline
 
     def exploit_on_original(self, exploit_src):
@@ -164,8 +207,8 @@ class Harness:
         diff = unified_diff(self.original, patched)
         changed_paths = list(guard.changed(self.original, patched))
 
-        base_ok, base_failing = self.baseline()
-        details["baseline_suite"] = {"pass": base_ok, "failing": base_failing}
+        base_ran, base_failing = self.baseline()
+        details["baseline_suite"] = {"ran": base_ran, "failing": base_failing}
 
         pre, pre_rec = self.exploit_on_original(exploit_src)
         exploit_pre = pre == "landed"
@@ -173,10 +216,16 @@ class Harness:
             reasons.append(f"exploit is {pre} on the original code, so it proves nothing")
         details["exploit_original"] = {"outcome": pre, "output": pre_rec["output"][-1500:]}
 
-        suite_ok, failing, suite_rec = run_suite(patched)
-        details["suite"] = {"pass": suite_ok, "failing": failing, "output": suite_rec["output"][-1500:]}
-        if not suite_ok:
-            reasons.append("existing suite failed: " + (", ".join(failing) or "no tests ran"))
+        ran, all_failing, suite_rec = run_suite(patched)
+        failing = [t for t in all_failing if t not in base_failing]  # failing before = not ours
+        suite_ok = ran and not failing
+        details["suite"] = {"pass": suite_ok, "failing": failing,
+                            "already_failing": [t for t in all_failing if t in base_failing],
+                            "output": suite_rec["output"][-1500:]}
+        if not ran:
+            reasons.append("existing suite failed: no tests ran")
+        elif failing:
+            reasons.append("existing suite failed: " + ", ".join(failing))
 
         post, post_rec = exploit_outcome(patched, exploit_src)
         exploit_post = post != "blocked"
@@ -184,10 +233,16 @@ class Harness:
             reasons.append(f"exploit is {post} on the patched code")
         details["exploit_patched"] = {"outcome": post, "output": post_rec["output"][-1500:]}
 
-        clear, scan = semgrep_check(self.original, patched, self.finding, changed_paths, self._scan_cache)
+        clear, scan = findings_delta(self.original, patched, self.finding, changed_paths, self._scan_cache)
         details["semgrep"] = scan
-        if not clear:
-            reasons.append(f"Semgrep still flags {self.finding.path}: {scan['remaining'].get(self.finding.path) or scan['regressions']}")
+        if scan["unfixed"]:
+            reasons.append(f"Semgrep still flags `{self.finding.function}`: {', '.join(scan['unfixed'])}")
+        if scan["introduced"]:
+            reasons.append(f"the patch introduces new findings: {', '.join(scan['introduced'])}")
+
+        slop = scope.check(self.original, patched, self.finding)
+        if slop:
+            reasons.append("out of scope: " + "; ".join(slop))
 
         if tamper:
             reasons.append("agent edited what grades it: " + "; ".join(tamper))
@@ -196,6 +251,6 @@ class Harness:
 
         return Proof(
             exploit_pre=exploit_pre, exploit_post=exploit_post, semgrep_clear=clear,
-            suite_pass=suite_ok, tamper=tamper, failing_tests=failing, reasons=reasons,
+            suite_pass=suite_ok, tamper=tamper, slop=slop, failing_tests=failing, reasons=reasons,
             diff=diff, details=details,
         )

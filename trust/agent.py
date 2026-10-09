@@ -23,7 +23,16 @@ RULES = """Rules you must follow:
 - Never detect or special-case the test environment.
 - You may not edit tests, conftest.py or test configuration unless the human explicitly unlocked
   a test file below. The harness rejects any other test edit.
-- Return the complete new content of every file you change. Paths are relative to the repo root."""
+- Return the complete new content of every file you change. Paths are relative to the repo root.
+
+Scope (the harness rejects a patch that breaks any of these):
+- Change only the vulnerable function. A new module-level constant or helper is fine if the
+  function uses it. Don't touch other functions, files, imports of new modules, or formatting.
+- Make the smallest change that fixes the bug. No refactors, renames, type hints, logging,
+  prints, catch-all excepts or TODOs.
+- Don't add comments that narrate the change ("fixed SQL injection", "now uses parameters").
+  A comment is only for something the code can't say, such as why ORDER BY can't take a
+  bound parameter."""
 
 
 class FileOut(BaseModel):
@@ -50,7 +59,8 @@ def repo_context(target, finding: Finding):
         return "\n\n".join(f"### {p}\n```python\n{c}\n```" for p, c in sorted(d.items()))
 
     return (
-        f"Semgrep finding `{finding.rule_id}` in `{finding.path}` line {finding.line}:\n"
+        f"Semgrep finding `{finding.rule_id}` in `{finding.path}` line {finding.line}, "
+        f"inside `{finding.function}`:\n"
         f"{finding.message}\n\n## Application code\n{block(app)}\n\n"
         f"## Existing tests (read-only)\n{block(tests)}"
     )

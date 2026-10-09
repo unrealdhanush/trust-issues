@@ -16,7 +16,7 @@ from .config import RUNS_DIR, env
 TABLE = "fix_attempts"
 COLUMNS = [
     "fix_id", "attempt", "vuln_class", "file", "rule_id", "exploit_pre", "exploit_post",
-    "semgrep_clear", "suite_pass", "verdict", "decision", "hint", "transcript",
+    "semgrep_clear", "suite_pass", "scope_clean", "verdict", "decision", "hint", "transcript",
     "failing_tests", "evidence", "ts",
 ]
 DDL = f"""
@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS {TABLE} (
     exploit_post Bool,
     semgrep_clear Bool,
     suite_pass Bool,
+    scope_clean Bool,
     verdict LowCardinality(String),
     decision LowCardinality(String),
     hint String,
@@ -42,7 +43,7 @@ ORDER BY (fix_id, attempt, verdict)
 """
 DEFAULTS = {
     "attempt": 0, "vuln_class": "sqli", "file": "", "rule_id": "", "exploit_pre": False,
-    "exploit_post": False, "semgrep_clear": False, "suite_pass": False, "verdict": "",
+    "exploit_post": False, "semgrep_clear": False, "suite_pass": False, "scope_clean": True, "verdict": "",
     "decision": "", "hint": "", "transcript": "", "failing_tests": [], "evidence": "{}",
 }
 
@@ -87,7 +88,7 @@ class FileLedger:
         for line in self.path.read_text().splitlines():
             if not line.strip():
                 continue
-            r = json.loads(line)
+            r = {**DEFAULTS, **json.loads(line)}
             if fix_id and r["fix_id"] != fix_id:
                 continue
             if _key(r) not in latest or r["ts"] >= latest[_key(r)]["ts"]:
@@ -110,6 +111,8 @@ class ClickHouseLedger:
 
     def setup(self):
         self.client.command(DDL)
+        # Tables created before the scope check existed.
+        self.client.command(f"ALTER TABLE {TABLE} ADD COLUMN IF NOT EXISTS scope_clean Bool DEFAULT true AFTER suite_pass")
 
     def insert(self, row):
         row = normalize(row)

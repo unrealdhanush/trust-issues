@@ -6,6 +6,7 @@ import os
 import subprocess
 from pathlib import Path
 
+from . import code
 from .config import env
 from .models import Finding
 
@@ -73,6 +74,29 @@ def is_sqli(result):
     return any("CWE-89" in c for c in cwes) or "sql" in result["check_id"].lower()
 
 
+def is_security(result):
+    return is_sqli(result) or result.get("extra", {}).get("metadata", {}).get("category") == "security"
+
+
+def rule_short(result):
+    return result["check_id"].rsplit(".", 1)[-1]
+
+
+def matched_code(result):
+    """The matched source lines, whitespace-normalized: stable when line numbers shift."""
+    try:
+        lines = Path(result["path"]).read_text().splitlines()
+    except OSError:
+        return ""
+    start, end = result["start"]["line"], result["end"]["line"]
+    return "\n".join(l.strip() for l in lines[start - 1:end] if l.strip())
+
+
+def fingerprint(result, root):
+    rel = Path(result["path"]).resolve().relative_to(Path(root).resolve()).as_posix()
+    return (rule_short(result), rel, matched_code(result))
+
+
 def source_files(root):
     """App source files Semgrep should see: no tests, no virtualenvs."""
     root = Path(root)
@@ -85,21 +109,28 @@ def source_files(root):
 
 
 def sqli_findings(root, prefer_mcp=True):
-    """One finding per vulnerable file, keyed on the taint rule when it fires."""
+    """One finding per vulnerable function, keyed on the taint rule when it fires.
+
+    Several rules often flag the same function (the taint rule, the cursor rule); they are
+    one bug and one fix.
+    """
     root = Path(root).resolve()
     results, engine = scan(source_files(root), prefer_mcp=prefer_mcp)
     grouped = {}
     for r in filter(is_sqli, results):
-        grouped.setdefault(r["path"], []).append(r)
+        src = Path(r["path"]).read_text()
+        fn = code.enclosing_function(src, r["start"]["line"])
+        grouped.setdefault((r["path"], fn), []).append(r)
     findings = []
-    for path, rs in sorted(grouped.items()):
+    for (path, fn), rs in sorted(grouped.items()):
         rs.sort(key=lambda r: (PREFERRED_RULE not in r["check_id"], r["start"]["line"]))
         top = rs[0]
         findings.append(Finding(
             rule_id=top["check_id"],
-            path=str(Path(path).resolve().relative_to(root)),
+            path=Path(path).resolve().relative_to(root).as_posix(),
             line=top["start"]["line"],
             message=top["extra"]["message"],
             related_rules=sorted({r["check_id"] for r in rs}),
+            function=fn,
         ))
     return findings, engine

@@ -10,12 +10,13 @@ class Finding:
     message: str
     vuln_class: str = "sqli"
     related_rules: list[str] = field(default_factory=list)
+    function: str = ""  # qualname of the vulnerable function, "<module>" at top level
 
     @property
     def fix_id(self):
-        # One finding per file, so the path is the identity. The rule id differs between the
-        # MCP server and the CLI (different rule namespaces), so it stays out of the id.
-        digest = hashlib.sha1(f"{self.vuln_class}:{self.path}".encode()).hexdigest()[:6]
+        # One finding per function, so file + function is the identity. The rule id differs
+        # between the MCP server and the CLI (different rule namespaces), so it stays out.
+        digest = hashlib.sha1(f"{self.vuln_class}:{self.path}:{self.function}".encode()).hexdigest()[:6]
         stem = self.path.rsplit("/", 1)[-1].removesuffix(".py")
         return f"{self.vuln_class}-{stem}-{digest}"
 
@@ -45,14 +46,15 @@ class Proof:
     semgrep_clear: bool
     suite_pass: bool
     tamper: list[str] = field(default_factory=list)
+    slop: list[str] = field(default_factory=list)  # scope violations, see scope.py
     failing_tests: list[str] = field(default_factory=list)
     reasons: list[str] = field(default_factory=list)
     diff: str = ""
     details: dict = field(default_factory=dict)
 
     @property
-    def exploit_valid(self):
-        return self.exploit_pre
+    def scope_clean(self):
+        return not self.slop
 
     @property
     def proven(self):
@@ -62,6 +64,7 @@ class Proof:
             and self.semgrep_clear
             and self.suite_pass
             and not self.tamper
+            and not self.slop
         )
 
     @property
@@ -71,4 +74,5 @@ class Proof:
     def to_dict(self):
         d = asdict(self)
         d["verdict"] = self.verdict
+        d["scope_clean"] = self.scope_clean
         return d

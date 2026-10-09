@@ -15,10 +15,14 @@ def _cli_semgrep(monkeypatch):
     monkeypatch.setenv("TRUST_SEMGREP_MCP", "0")
 
 
-def finding(stem, line):
+FUNCTIONS = {"users": "search_users", "admin": "list_orders"}
+
+
+def finding(stem, line, function=None):
     return Finding(
         rule_id="python.flask.security.injection.tainted-sql-string.tainted-sql-string",
         path=f"app/{stem}.py", line=line, message="tainted SQL string",
+        function=function or FUNCTIONS[stem],
     )
 
 

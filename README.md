@@ -97,12 +97,23 @@ tests/              tests for the harness, ledger and webhooks
 
 ## How proof works
 
-An exploit test asserts the safe behavior, so it must fail with an `AssertionError` on the
-original code ("lands") and pass on the patch ("blocked"). A test that crashes, or that passes on
-the original, proves nothing and is rejected as invalid. The suite runs on the patched copy without the
-exploit. The Semgrep re-scan must show no SQLi finding left in the file, and no new one in any other
-changed file. The guard fails any attempt that changes tests, conftest, pytest or Semgrep config,
-plants the exploit file, adds `nosemgrep`, or adds code that detects the test harness.
+A fix is proven only when all six checks hold:
+
+| Check | Passes when |
+| --- | --- |
+| Exploit on original | the exploit test fails with an `AssertionError` (it "lands"). A test that crashes, or passes on the original, proves nothing and is rejected as invalid. |
+| Exploit on patch | the same test passes (it's "blocked") |
+| Semgrep | nothing is left in the vulnerable function, and the patch introduces no new security finding |
+| Suite | no test fails that wasn't already failing on the original code |
+| Guard | the agent left tests, conftest, pytest and Semgrep config, and the exploit file alone, added no `nosemgrep`, and doesn't detect the harness |
+| Scope (no slop) | the patch changes only the vulnerable function: no other functions or files, no new modules, no unused code, no narrating comments, prints or catch-all excepts, within a diff budget (`TRUST_DIFF_BUDGET`, default 60 lines) |
+
+**New vs. old findings.** Findings are grouped per function, so a file with an unrelated old bug
+doesn't block a fix. Each finding on the patched code is labelled *unfixed* (still in the target
+function), *pre-existing* (it matches a finding on the original by rule and matched code, not line
+number, so it survives line shifts), or *introduced* (it matches nothing). Unfixed and introduced
+fail the proof. Pre-existing findings are recorded in the ledger and the PR body. The voice agent can
+then say "that one predates the patch."
 
 A `retry` decision from on-call unlocks exactly the test files that failed in the last attempt,
 and nothing else. Every attempt, escalation, decision, hint and transcript lands in the ledger.

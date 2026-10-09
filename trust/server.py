@@ -50,7 +50,12 @@ def summarize(rows):
             "exploit_blocked_on_patch": not r["exploit_post"],
             "semgrep_clear": r["semgrep_clear"],
             "suite_pass": r["suite_pass"],
+            "stays_in_scope": r["scope_clean"],
+            "scope_problems": ev.get("slop", []),
             "failing_tests": r["failing_tests"],
+            "findings_left_in_function": ev.get("semgrep", {}).get("unfixed", []),
+            "findings_introduced_by_patch": ev.get("semgrep", {}).get("introduced", []),
+            "findings_that_predate_patch": ev.get("semgrep", {}).get("preexisting", []),
             "why_it_failed": ev.get("reasons", []),
             "files_changed": ev.get("changed_files", []),
             "patch_summary": ev.get("explanation", ""),
@@ -60,7 +65,7 @@ def summarize(rows):
                  for r in rows if r["verdict"] == "escalated"]
     return {
         "found": True, "fix_id": first["fix_id"], "vuln_class": first["vuln_class"],
-        "file": first["file"], "rule_id": first["rule_id"], "attempts": attempts,
+        "file": first["file"], "function": json.loads(first["evidence"] or "{}").get("function", ""), "rule_id": first["rule_id"], "attempts": attempts,
         "escalations": decisions,
     }
 

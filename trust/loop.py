@@ -31,9 +31,12 @@ def proof_row(finding: Finding, attempt, proof: Proof, patch: Patch, verdict=Non
         "file": finding.path, "rule_id": finding.rule_id,
         "exploit_pre": proof.exploit_pre, "exploit_post": proof.exploit_post,
         "semgrep_clear": proof.semgrep_clear, "suite_pass": proof.suite_pass,
+        "scope_clean": proof.scope_clean,
         "verdict": verdict or proof.verdict, "failing_tests": proof.failing_tests,
         "evidence": {
-            "reasons": proof.reasons, "tamper": proof.tamper, "explanation": patch.explanation,
+            "function": finding.function,
+            "reasons": proof.reasons, "tamper": proof.tamper, "slop": proof.slop,
+            "explanation": patch.explanation,
             "changed_files": proof.details.get("changed_files", []),
             "allow_test_edits": proof.details.get("allow_test_edits", []),
             "semgrep": proof.details.get("semgrep", {}), "diff": proof.diff[:8000],
@@ -53,7 +56,11 @@ def failed_check(proof: Proof):
         names = ", ".join(t.rsplit("::", 1)[-1] for t in proof.failing_tests) or "the suite"
         return f"the fix breaks an existing test, {names}"
     if not proof.semgrep_clear:
-        return "Semgrep still flags the file after the patch"
+        if proof.details.get("semgrep", {}).get("introduced"):
+            return "the patch introduces a new security finding"
+        return "Semgrep still flags the function after the patch"
+    if proof.slop:
+        return "the patch changes more than the vulnerable function"
     return "proof failed"
 
 
@@ -67,6 +74,7 @@ def save_artifacts(finding, attempt, proof, patch, status):
         ("Semgrep re-scan is clean", proof.semgrep_clear),
         ("Existing suite passes", proof.suite_pass),
         ("Agent left tests and scan config alone", not proof.tamper),
+        (f"Patch stays inside `{finding.function}`", proof.scope_clean),
     ]
     body = [
         f"# Fix {finding.vuln_class.upper()} in `{finding.path}`", "",
@@ -74,6 +82,10 @@ def save_artifacts(finding, attempt, proof, patch, status):
         "", patch.explanation, "", "## Proof", "",
         *[f"- [{'x' if ok else ' '}] {name}" for name, ok in checks],
     ]
+    scan = proof.details.get("semgrep", {})
+    if scan.get("preexisting"):
+        body += ["", "Pre-existing findings, not introduced by this patch: "
+                 + ", ".join(f"`{f}`" for f in scan["preexisting"])]
     approved = proof.details.get("allow_test_edits") or []
     if approved:
         body += ["", "Test files changed with on-call approval: " + ", ".join(f"`{t}`" for t in approved)]
@@ -148,13 +160,15 @@ def escalate(finding: Finding, attempt, proof: Proof, patch: Patch, number):
 
 def fix(target, finding: Finding, agent, apply=False):
     ledger = get_ledger()
-    say(f"{finding.fix_id}: {finding.rule_short} in {finding.path}:{finding.line}")
+    say(f"{finding.fix_id}: {finding.rule_short} in {finding.path}:{finding.line} ({finding.function})")
     workdir = RUNS_DIR / finding.fix_id / "work"
     harness = Harness(target, finding, workdir)
-    base_ok, base_failing = harness.baseline()
-    if not base_ok:
-        say(f"the target's suite is already red ({base_failing}); can't prove anything against it")
+    base_ran, base_failing = harness.baseline()
+    if not base_ran:
+        say("the target's suite doesn't run on the original code; can't prove anything against it")
         return "blocked"
+    if base_failing:
+        say(f"already failing before any patch (won't count against the fix): {', '.join(base_failing)}")
 
     exploit = agent.exploit(target, finding)
     history, hint, allow = [], "", set()
@@ -167,7 +181,8 @@ def fix(target, finding: Finding, agent, apply=False):
         mark = lambda ok: "pass" if ok else "FAIL"
         say(f"attempt {attempt}: exploit-original {mark(proof.exploit_pre)} · exploit-patch "
             f"{mark(not proof.exploit_post)} · semgrep {mark(proof.semgrep_clear)} · suite "
-            f"{mark(proof.suite_pass)} · guard {mark(not proof.tamper)} -> {proof.verdict}")
+            f"{mark(proof.suite_pass)} · guard {mark(not proof.tamper)} · scope "
+            f"{mark(proof.scope_clean)} -> {proof.verdict}")
         for r in proof.reasons:
             say(f"  - {r}")
 
@@ -229,7 +244,7 @@ def cmd_decide(args):
 
 def cmd_ledger(args):
     for r in get_ledger().rows(args.fix_id):
-        flags = " ".join(f"{k}={'Y' if r[k] else 'n'}" for k in ("exploit_pre", "exploit_post", "semgrep_clear", "suite_pass"))
+        flags = " ".join(f"{k}={'Y' if r[k] else 'n'}" for k in ("exploit_pre", "exploit_post", "semgrep_clear", "suite_pass", "scope_clean"))
         extra = f" decision={r['decision']} hint={r['hint']!r}" if r["verdict"] == "escalated" else ""
         print(f"{r['ts'][:19]} {r['fix_id']} #{r['attempt']} {r['verdict']:<9} {flags}{extra}")
 
