@@ -43,7 +43,7 @@
   .s-proven { color:var(--ok); background:var(--ok-bg); } .s-failed,.s-held { color:var(--bad); background:var(--bad-bg); } .s-escalated,.s-waiting { color:var(--warn); background:var(--warn-bg); } .s-shipped { color:#7155b6; background:#f5f1fc; }
   .table-wrap { overflow-x:auto; } table { width:100%; border-collapse:collapse; font-size:12px; } th,td { text-align:left; padding:12px 8px; border-top:1px solid var(--line); vertical-align:top; white-space:nowrap; } th { color:var(--muted); font-size:10px; font-weight:500; background:#fafafb; } td.why { white-space:normal; min-width:220px; color:var(--muted); } .old { font-size:11px; }
   .pill { display:inline-block; min-width:46px; text-align:center; padding:3px 7px; border-radius:5px; font-size:10px; font-weight:500; } .y { color:var(--ok); background:var(--ok-bg); } .n { color:var(--bad); background:var(--bad-bg); }
-  .call { background:#fffcf5; border:1px solid #efe2c9; } .call p { margin:8px 0 20px; color:var(--muted); }
+  .call { background:#fffcf5; border:1px solid #efe2c9; } .call p { margin:8px 0 20px; color:var(--muted); overflow-wrap:anywhere; }
   .actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; } .actions input { flex:1 1 260px; min-width:0; padding:12px 14px; border-radius:12px; border:1px solid var(--line); background:var(--panel); color:var(--ink); font:inherit; }
   button { font:500 13px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; min-height:44px; padding:12px 18px; border-radius:999px; border:0; background:#eef0f5; color:var(--ink); cursor:pointer; transition:background .2s,transform .2s; } button:hover { background:#e2e6ed; } button:active { transform:scale(.98); } button.primary { background:var(--accent); color:#fff; } button.primary:hover { background:#0077ed; } :focus-visible { outline:3px solid #0071e380; outline-offset:4px; }
   .empty { color:var(--muted); border:1px solid #fff; border-radius:24px; padding:42px 24px; text-align:center; background:#ffffffb8; box-shadow:0 8px 36px #27374e04; font-size:13px; } .empty strong { display:block; color:var(--ink); font-size:21px; font-weight:600; letter-spacing:-.5px; margin-bottom:8px; } .empty code { background:#eef6ff; color:var(--accent); padding:3px 7px; border-radius:5px; }
@@ -178,6 +178,8 @@ function renderCalls(rows) {
       refresh();
     };
   }
+  // A new escalation is the demo's big moment: bring it on screen, whatever the scroll position.
+  $("#call-section").scrollIntoView({ behavior: "smooth", block: "start" });
   if (agentId && !document.querySelector("script[data-convai]")) {
     const s = document.createElement("script");
     s.src = "https://unpkg.com/@elevenlabs/convai-widget-embed";
@@ -195,7 +197,7 @@ async function refresh() {
     $("#count-proven").textContent = fixes.filter((g) => status(g)[0] === "proven").length;
     $("#count-waiting").textContent = fixes.filter((g) => status(g)[0] === "waiting").length;
     $("#count-attempts").textContent = rows.filter((r) => r.verdict === "proven" || r.verdict === "failed").length;
-    $("#fixes").innerHTML = fixes.length ? fixes.map(renderFix).join("") : `<div class="empty"><strong>Ready to earn some trust.</strong>Run <code>trust run</code> to scan, patch, and collect proof. Your fixes will appear here.</div>`;
+    $("#fixes").innerHTML = fixes.length ? fixes.map(renderFix).join("") : `<div class="empty"><strong>Ready to earn some trust.</strong>Run <code>trust-issues run</code> to scan, patch, and collect proof. Your fixes will appear here.</div>`;
     renderCalls(rows);
   } catch (e) {
     $("#meta").textContent = "server unreachable";
