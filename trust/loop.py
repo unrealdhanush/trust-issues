@@ -5,6 +5,7 @@
     trust decide <fix_id> retry --hint "you can update the admin sort test"
     trust ledger                      # print the ledger
     trust serve                       # webhook tools + dashboard on :8000
+    trust call-test                   # rehearse the escalation call on a canned failed fix
 """
 
 import argparse
@@ -103,15 +104,15 @@ def apply_to_target(target, patch: Patch):
         dest.write_text(edit.content)
 
 
-def wait_for_decision(fix_id, attempt, conversation_id=None):
+def wait_for_decision(fix_id, attempt, timeout=DECISION_TIMEOUT):
     ledger = get_ledger()
-    deadline = time.time() + DECISION_TIMEOUT
+    deadline = time.time() + timeout
     while time.time() < deadline:
         for r in ledger.rows(fix_id):
             if r["verdict"] == "escalated" and int(r["attempt"]) == attempt and r["decision"]:
                 return r
         time.sleep(2)
-    say(f"no decision within {DECISION_TIMEOUT}s; holding")
+    say(f"no decision within {timeout}s; holding")
     row = pending_escalation(ledger.rows(fix_id))
     return ledger.insert({**row, "decision": "hold", "hint": "timed out waiting for on-call", "ts": now()})
 
@@ -131,14 +132,20 @@ def fetch_transcript(conversation_id, timeout=90):
     return voice.transcript_text(conv)
 
 
-def escalate(finding: Finding, attempt, proof: Proof, patch: Patch, number):
-    ledger = get_ledger()
-    ledger.insert(proof_row(finding, attempt, proof, patch, verdict="escalated"))
-    brief = {
+def brief_for(finding: Finding, attempt, proof: Proof):
+    """The voice agent's dynamic variables: what it knows when the call connects."""
+    return {
         "fix_id": finding.fix_id, "vuln_class": "SQL injection", "file": finding.path,
         "failed_check": failed_check(proof), "attempts": attempt,
         "failing_tests": ", ".join(proof.failing_tests) or "none",
     }
+
+
+def escalate(finding: Finding, attempt, proof: Proof, patch: Patch, number, timeout=DECISION_TIMEOUT):
+    """Write the escalation row, call on-call, and return the escalation row once decided."""
+    ledger = get_ledger()
+    ledger.insert(proof_row(finding, attempt, proof, patch, verdict="escalated"))
+    brief = brief_for(finding, attempt, proof)
     conversation_id = None
     if voice.configured():
         say(f"escalation {number}: calling on-call about {finding.fix_id}")
@@ -149,13 +156,13 @@ def escalate(finding: Finding, attempt, proof: Proof, patch: Patch, number):
     if not conversation_id:
         say(f"escalation {number}: {brief['failed_check']}")
         say(f"decide on the dashboard, or: trust decide {finding.fix_id} ship|hold|retry --hint '...'")
-    row = wait_for_decision(finding.fix_id, attempt)
+    row = wait_for_decision(finding.fix_id, attempt, timeout=timeout)
     if conversation_id:
         transcript = fetch_transcript(conversation_id)
         if transcript:
             row = ledger.insert({**row, "transcript": transcript, "ts": now()})
     say(f"decision: {row['decision']}" + (f" (hint: {row['hint']})" if row["hint"] else ""))
-    return row["decision"], row["hint"]
+    return row
 
 
 def fix(target, finding: Finding, agent, apply=False):
@@ -204,7 +211,8 @@ def fix(target, finding: Finding, agent, apply=False):
             say("out of escalations; holding")
             return "held"
         escalations += 1
-        decision, hint = escalate(finding, attempt, proof, patch, escalations)
+        row = escalate(finding, attempt, proof, patch, escalations)
+        decision, hint = row["decision"], row["hint"]
         if decision == "ship":
             out = save_artifacts(finding, attempt, proof, patch, "shipped without proof (on-call decision)")
             if apply:
@@ -249,6 +257,22 @@ def cmd_ledger(args):
         print(f"{r['ts'][:19]} {r['fix_id']} #{r['attempt']} {r['verdict']:<9} {flags}{extra}")
 
 
+def cmd_call_test(args):
+    import os
+
+    from .rehearse import PREFIX, rehearse
+
+    if args.cleanup:
+        get_ledger().delete(prefix=PREFIX)
+        say("removed every rehearsal row from the ledger")
+        return
+    if args.to:
+        os.environ["ONCALL_PHONE_NUMBER"] = args.to
+    row = rehearse(timeout=args.timeout, keep=args.keep, force=args.force)
+    if row is None:
+        raise SystemExit(1)
+
+
 def cmd_serve(args):
     import uvicorn
 
@@ -272,6 +296,13 @@ def main():
     l = sub.add_parser("ledger")
     l.add_argument("--fix-id")
     l.set_defaults(func=cmd_ledger)
+    c = sub.add_parser("call-test", help="rehearse the escalation call")
+    c.add_argument("--to", help="number to call instead of ONCALL_PHONE_NUMBER (E.164, e.g. +14155550123)")
+    c.add_argument("--timeout", type=int, default=180, help="seconds to wait for a decision")
+    c.add_argument("--keep", action="store_true", help="leave the rehearsal rows in the ledger")
+    c.add_argument("--force", action="store_true", help="call even if the preflight finds problems")
+    c.add_argument("--cleanup", action="store_true", help="remove all rehearsal rows and exit")
+    c.set_defaults(func=cmd_call_test)
     s = sub.add_parser("serve")
     s.add_argument("--host", default="127.0.0.1")
     s.add_argument("--port", type=int, default=8000)

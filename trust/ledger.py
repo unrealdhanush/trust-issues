@@ -83,6 +83,17 @@ class FileLedger:
             f.write(json.dumps(row) + "\n")
         return row
 
+    def delete(self, fix_id=None, prefix=None):
+        def doomed(r):
+            return r["fix_id"] == fix_id or (prefix and r["fix_id"].startswith(prefix))
+
+        with open(self.path, "r+") as f:
+            fcntl.flock(f, fcntl.LOCK_EX)
+            keep = [l for l in f.read().splitlines() if l.strip() and not doomed(json.loads(l))]
+            f.seek(0)
+            f.truncate()
+            f.write("".join(l + "\n" for l in keep))
+
     def rows(self, fix_id=None):
         latest = {}
         for line in self.path.read_text().splitlines():
@@ -118,6 +129,13 @@ class ClickHouseLedger:
         row = normalize(row)
         self.client.insert(TABLE, [[row[c] for c in COLUMNS]], column_names=COLUMNS)
         return row
+
+    def delete(self, fix_id=None, prefix=None):
+        if fix_id:
+            self.client.command(f"DELETE FROM {TABLE} WHERE fix_id = {{v:String}}", parameters={"v": fix_id})
+        if prefix:
+            self.client.command(f"DELETE FROM {TABLE} WHERE startsWith(fix_id, {{v:String}})",
+                                parameters={"v": prefix})
 
     def rows(self, fix_id=None):
         where = "WHERE fix_id = {fix_id:String}" if fix_id else ""

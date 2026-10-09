@@ -48,6 +48,7 @@ uv run trust run --only app/users.py      # bug 1: proves itself, nobody is call
 uv run trust run --only app/admin.py      # bug 2: fails proof twice, then escalates
 uv run trust decide <fix_id> retry --hint "you can update the admin sort test"
 uv run trust ledger                       # the proof trail
+uv run trust call-test                    # rehearse the escalation call
 uv run pytest -q                          # the harness's own tests
 ```
 
@@ -72,6 +73,14 @@ Each piece switches to the real service as soon as its env vars are set.
    tools and the agent, imports the Twilio number, and prints `ELEVENLABS_AGENT_ID` and
    `ELEVENLABS_PHONE_NUMBER_ID` for `.env`.
 3. Set `ONCALL_PHONE_NUMBER`. A Twilio trial account can only dial verified numbers.
+4. Rehearse: `trust call-test` (or `--to +1...` for another phone). It writes a temporary failed fix
+   (demo bug 2), checks that the agent's tools reach this ledger through the tunnel, places the
+   call, waits for the decision, prints the transcript and deletes its rows. Without ElevenLabs
+   settings it simulates the call; answer from the dashboard or with `trust decide`.
+   `--keep` leaves the rows for inspection, and `--cleanup` removes every rehearsal row.
+
+Homebrew's `p11-kit` also installs a `trust` command. Outside the venv, use `trust-issues`, an alias
+for the same CLI, or `uv run trust`.
 
 With `ELEVENLABS_AGENT_ID` set, the dashboard also shows the ElevenLabs web widget on a pending
 escalation, which is the no-phone fallback.

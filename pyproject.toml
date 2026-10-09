@@ -18,6 +18,7 @@ dependencies = [
 
 [project.scripts]
 trust = "trust.loop:main"
+trust-issues = "trust.loop:main"
 
 [build-system]
 requires = ["hatchling"]
