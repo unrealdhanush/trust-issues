@@ -10,7 +10,9 @@
 """
 
 import argparse
+import difflib
 import json
+import re
 import shutil
 import time
 from pathlib import Path
@@ -19,8 +21,30 @@ from . import semgrep, voice
 from .agent import get_agent
 from .config import DECISION_TIMEOUT, MAX_ESCALATIONS, MAX_PROOFS, RUNS_DIR, ROOT, env
 from .ledger import get_ledger, normalize, now, pending_escalation
-from .models import Finding, Patch, Proof
-from .prove import Harness
+from .models import FileEdit, Finding, Patch, Proof
+from .prove import EXPLOIT_FILE, Harness
+
+REGRESSION_PREFIX = "test_security_"
+
+
+def regression_test(finding: Finding, exploit_src):
+    """The exploit that proved the fix, kept in the suite: if it ever fails again, the bug is back."""
+    name = re.sub(r"\W", "_", finding.fix_id)
+    path = (Path(EXPLOIT_FILE).parent / f"{REGRESSION_PREFIX}{name}.py").as_posix()
+    header = (
+        f'"""Security regression test added by Trust Issues ({finding.fix_id}).\n\n'
+        f"This is the exploit that proved the {finding.vuln_class} in {finding.path} "
+        f"({finding.function}): it failed on the\nvulnerable code and passes on the fix. "
+        f'If it ever fails again, the vulnerability is back.\n"""\n\n'
+    )
+    return FileEdit(path, header + exploit_src)
+
+
+def with_regression_test(finding, patch: Patch, proof: Proof, exploit_src):
+    """Add the exploit to the delivered patch, but only when the patch really blocks it."""
+    if proof.exploit_pre and not proof.exploit_post:
+        return Patch([*patch.edits, regression_test(finding, exploit_src)], patch.explanation)
+    return patch
 
 
 def say(msg):
@@ -69,7 +93,11 @@ def failed_check(proof: Proof):
 def save_artifacts(finding, attempt, proof, patch, status):
     out = RUNS_DIR / finding.fix_id
     out.mkdir(parents=True, exist_ok=True)
-    (out / "fix.diff").write_text(proof.diff)
+    regression = [e for e in patch.edits if Path(e.path).name.startswith(REGRESSION_PREFIX)]
+    diff = proof.diff + "".join(
+        "".join(difflib.unified_diff([], e.content.splitlines(keepends=True), "/dev/null", f"b/{e.path}"))
+        for e in regression)
+    (out / "fix.diff").write_text(diff)
     checks = [
         ("Exploit lands on the original code", proof.exploit_pre),
         ("Exploit is blocked on the patch", not proof.exploit_post),
@@ -88,12 +116,16 @@ def save_artifacts(finding, attempt, proof, patch, status):
     if scan.get("preexisting"):
         body += ["", "Pre-existing findings, not introduced by this patch: "
                  + ", ".join(f"`{f}`" for f in scan["preexisting"])]
+    if regression:
+        body += ["", f"Adds `{regression[0].path}`: the exploit that proved this bug, kept as a "
+                 "regression test. It failed on the vulnerable code and passes on this fix, so if it "
+                 "ever fails again, the vulnerability is back."]
     approved = proof.details.get("allow_test_edits") or []
     if approved:
         body += ["", "Test files changed with on-call approval: " + ", ".join(f"`{t}`" for t in approved)]
     if proof.reasons:
         body += ["", "## Open issues", "", *[f"- {r}" for r in proof.reasons]]
-    body += ["", "## Diff", "", "```diff", proof.diff, "```", ""]
+    body += ["", "## Diff", "", "```diff", diff, "```", ""]
     (out / "PR.md").write_text("\n".join(body))
     return out
 
@@ -218,8 +250,9 @@ def fix(target, finding: Finding, agent, apply=False, open_pr=False):
             say(f"  - {r}")
 
         if proof.proven:
-            out = save_artifacts(finding, attempt, proof, patch, "proven")
-            deliver(target, finding, patch, out, apply, open_pr, proven=True)
+            delivered = with_regression_test(finding, patch, proof, exploit)
+            out = save_artifacts(finding, attempt, proof, delivered, "proven")
+            deliver(target, finding, delivered, out, apply, open_pr, proven=True)
             say(f"proven. PR body and diff in {out.relative_to(ROOT) if out.is_relative_to(ROOT) else out}")
             return "proven"
 
@@ -237,8 +270,9 @@ def fix(target, finding: Finding, agent, apply=False, open_pr=False):
         row = escalate(finding, attempt, proof, patch, escalations)
         decision, hint = row["decision"], row["hint"]
         if decision == "ship":
-            out = save_artifacts(finding, attempt, proof, patch, "shipped without proof (on-call decision)")
-            deliver(target, finding, patch, out, apply, open_pr, proven=False)
+            delivered = with_regression_test(finding, patch, proof, exploit)
+            out = save_artifacts(finding, attempt, proof, delivered, "shipped without proof (on-call decision)")
+            deliver(target, finding, delivered, out, apply, open_pr, proven=False)
             return "shipped"
         if decision == "hold":
             out = save_artifacts(finding, attempt, proof, patch, "held for review (on-call decision)")

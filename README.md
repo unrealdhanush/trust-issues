@@ -114,6 +114,11 @@ and the tests that mention it, up to a budget. Not the whole repo.
 otherwise in this environment. Each attempt runs on a copy without `.git`, virtualenvs or
 `node_modules`.
 
+**Regression tests.** Every delivered fix carries the exploit that proved it, as
+`tests/test_security_<fix_id>.py`. It failed on the vulnerable code and passes on the fix, so if
+the bug ever comes back, CI fails on exactly that attack. It's only added when the patch really
+blocks the exploit.
+
 **Pull requests.** `--open-pr` commits each proven fix (or one on-call chose to ship, marked
 unproven) on a `trust-issues/<fix_id>` branch in a temporary git worktree, so your checkout is
 never touched. It pushes the branch to `origin` and, with `GITHUB_TOKEN` set and a GitHub remote,

@@ -137,3 +137,32 @@ def test_watch_changed_only_works_when_the_target_is_a_subfolder(tmp_path, monke
     seen = []
     watch_mod.cycle(outer / "target", lambda f: seen.append(f.path) or "held", state, changed_only=True)
     assert seen == ["app/users.py"]
+
+
+def test_pr_carries_the_exploit_as_a_regression_test(repo, tmp_path, monkeypatch):
+    """The proof becomes a guard: the PR adds the exploit, it passes on the fix, and it fails
+    the moment the vulnerable code comes back."""
+    from trust import ledger as ledger_mod
+    from trust import loop
+    from trust.agent import ScriptedAgent
+    from trust.ledger import FileLedger
+
+    work, remote = repo
+    monkeypatch.setattr(ledger_mod, "_ledger", FileLedger(tmp_path / "ledger.jsonl"))
+    monkeypatch.setattr(loop, "RUNS_DIR", tmp_path / "runs")
+    f = finding("users", 13)
+    assert loop.fix(work, f, ScriptedAgent(), open_pr=True) == "proven"
+
+    branch = f"trust-issues/{f.fix_id}"
+    test_path = f"tests/test_security_{f.fix_id.replace('-', '_')}.py"
+    files = sh(remote, "git", "ls-tree", "-r", "--name-only", branch).splitlines()
+    assert test_path in files
+    assert "Adds `" + test_path in (tmp_path / "runs" / f.fix_id / "PR.md").read_text()
+
+    clone = tmp_path / "clone"
+    sh(tmp_path, "git", "clone", "-q", "-b", branch, str(remote), str(clone))
+    run = lambda: subprocess.run([sys.executable, "-m", "pytest", "-q", test_path], cwd=clone,
+                                 capture_output=True, text=True)
+    assert run().returncode == 0, "the regression test passes on the fix"
+    (clone / "app/users.py").write_text((ROOT / "target/app/users.py").read_text())
+    assert run().returncode != 0, "and fails when the vulnerable code returns"
